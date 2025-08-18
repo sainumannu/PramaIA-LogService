@@ -3,8 +3,20 @@ Configurazione del servizio di logging.
 """
 
 import os
-from pydantic import BaseSettings
 from typing import Dict, Any, Optional, List
+
+# Gestione della migrazione da pydantic v1 a v2
+try:
+    # Prova prima con pydantic-settings (pydantic v2+)
+    from pydantic_settings import BaseSettings
+except ImportError:
+    try:
+        # Fallback a pydantic v1
+        from pydantic import BaseSettings
+    except ImportError:
+        raise ImportError(
+            "Manca la dipendenza 'pydantic-settings'. Installa con: pip install pydantic-settings"
+        )
 
 class LogServiceSettings(BaseSettings):
     """
@@ -45,6 +57,13 @@ class LogServiceSettings(BaseSettings):
     client_retry_max_attempts: int = 3
     client_retry_delay: int = 1  # secondi
     
+    # Configurazione Pydantic con supporto per v1 e v2
+    model_config = {
+        "env_prefix": "PRAMAIALOG_",
+        "env_file": ".env"
+    }
+    
+    # Per compatibilità con Pydantic v1
     class Config:
         env_prefix = "PRAMAIALOG_"
         env_file = ".env"

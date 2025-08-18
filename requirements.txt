@@ -16,6 +16,7 @@ passlib[bcrypt]>=1.7.4
 # Gestione variabili d'ambiente
 python-dotenv>=0.19.0
 pydantic>=1.8.2
+pydantic-settings>=2.0.0  # Per supporto BaseSettings in Pydantic v2
 
 # Supporto per Jinja2 templates (dashboard web)
 jinja2>=3.0.1

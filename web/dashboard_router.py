@@ -169,3 +169,94 @@ async def dashboard_settings(
             "title": "Impostazioni - PramaIA LogService"
         }
     )
+
+@dashboard_router.get("/logservice", response_class=HTMLResponse)
+async def dashboard_logservice(
+    request: Request,
+    api_key: str = Depends(get_api_key)
+):
+    """
+    Pagina dedicata al servizio di logging.
+    
+    Mostra informazioni sul servizio, client attivi, chiavi API e guide all'integrazione.
+    """
+    # Ottieni informazioni sullo stato del servizio
+    uptime = datetime.now() - log_manager.start_time if hasattr(log_manager, 'start_time') else "N/A"
+    uptime_str = str(uptime).split('.')[0] if isinstance(uptime, timedelta) else uptime
+    
+    # Dati di stato del servizio
+    service_status = {
+        "is_running": True,
+        "uptime": uptime_str,
+        "active_connections": 3,
+        "total_connections": 15,
+        "logs_received_today": log_manager.get_logs_count(
+            start_date=datetime.now() - timedelta(days=1)
+        ),
+        "db_size": log_manager.get_db_size(),
+        "total_logs": log_manager.get_logs_count()
+    }
+    
+    # Client attivi (dati di esempio)
+    active_clients = [
+        {
+            "id": "client-001",
+            "project": "PramaIAServer",
+            "module": "workflow_service",
+            "last_log_time": "2023-10-18 14:32:10",
+            "logs_sent": 1254,
+            "status": "online"
+        },
+        {
+            "id": "client-002",
+            "project": "PramaIA-PDK",
+            "module": "pdk-core",
+            "last_log_time": "2023-10-18 14:30:45",
+            "logs_sent": 873,
+            "status": "online"
+        },
+        {
+            "id": "client-003",
+            "project": "PramaIA-Agents",
+            "module": "pdf-monitor-agent",
+            "last_log_time": "2023-10-18 13:45:20",
+            "logs_sent": 421,
+            "status": "idle"
+        }
+    ]
+    
+    # Chiavi API (dati di esempio)
+    api_keys = [
+        {
+            "name": "PramaIAServer API Key",
+            "key_masked": "pramaiaserver_api_key_******",
+            "project": "PramaIAServer",
+            "created_at": "2023-09-15 10:00:00",
+            "last_used": "2023-10-18 14:32:10"
+        },
+        {
+            "name": "PDK API Key",
+            "key_masked": "pdk_api_key_******",
+            "project": "PramaIA-PDK",
+            "created_at": "2023-09-15 10:05:00",
+            "last_used": "2023-10-18 14:30:45"
+        },
+        {
+            "name": "Agents API Key",
+            "key_masked": "agents_api_key_******",
+            "project": "PramaIA-Agents",
+            "created_at": "2023-09-15 10:10:00",
+            "last_used": "2023-10-18 13:45:20"
+        }
+    ]
+    
+    return templates.TemplateResponse(
+        "logservice.html",
+        {
+            "request": request,
+            "title": "LogService - PramaIA LogService",
+            "status": service_status,
+            "clients": active_clients,
+            "api_keys": api_keys
+        }
+    )

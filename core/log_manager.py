@@ -36,6 +36,7 @@ class LogManager:
             os.makedirs(os.path.dirname(db_path), exist_ok=True)
             
         self.db_path = db_path
+        self.start_time = datetime.now()
         self._initialize_database()
     
     def _get_connection(self):
@@ -397,3 +398,82 @@ class LogManager:
         
         logger.info(f"Eliminati {deleted_count} log più vecchi di {days_to_keep} giorni")
         return deleted_count
+    
+    def get_logs_count(
+        self,
+        project: Optional[LogProject] = None,
+        level: Optional[LogLevel] = None,
+        module: Optional[str] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None
+    ) -> int:
+        """
+        Conta i log in base ai filtri specificati.
+        
+        Args:
+            project: Filtra per progetto
+            level: Filtra per livello di log
+            module: Filtra per modulo
+            start_date: Data di inizio per il filtro temporale
+            end_date: Data di fine per il filtro temporale
+            
+        Returns:
+            Numero di log che soddisfano i criteri di filtro
+        """
+        conn = self._get_connection()
+        cursor = conn.cursor()
+        
+        # Costruisci la query
+        query = "SELECT COUNT(*) as count FROM logs WHERE 1=1"
+        params = []
+        
+        if project:
+            query += " AND project = ?"
+            params.append(project)
+        
+        if level:
+            query += " AND level = ?"
+            params.append(level)
+        
+        if module:
+            query += " AND module = ?"
+            params.append(module)
+        
+        if start_date:
+            query += " AND timestamp >= ?"
+            params.append(start_date.isoformat())
+        
+        if end_date:
+            query += " AND timestamp <= ?"
+            params.append(end_date.isoformat())
+        
+        cursor.execute(query, params)
+        row = cursor.fetchone()
+        
+        conn.close()
+        return row["count"]
+    
+    def get_db_size(self) -> str:
+        """
+        Ottiene la dimensione del file del database.
+        
+        Returns:
+            Dimensione del database in formato leggibile (es. "1.5 MB")
+        """
+        try:
+            # Ottieni la dimensione del file in bytes
+            size_bytes = os.path.getsize(self.db_path)
+            
+            # Converti in formato leggibile
+            units = ["B", "KB", "MB", "GB"]
+            unit_index = 0
+            size = float(size_bytes)
+            
+            while size >= 1024 and unit_index < len(units) - 1:
+                size /= 1024
+                unit_index += 1
+            
+            return f"{size:.1f} {units[unit_index]}"
+        except Exception as e:
+            logger.error(f"Errore durante il calcolo della dimensione del database: {str(e)}")
+            return "N/A"
