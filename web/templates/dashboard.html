@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+    <script src="/static/js/charts.min.js"></script>
+</head>
+<body>
+    <header>
+        <div class="logo">
+            <h1>PramaIA LogService</h1>
+        </div>
+        <nav>
+            <ul>
+                <li><a href="/dashboard">Dashboard</a></li>
+                <li><a href="/dashboard/search">Ricerca</a></li>
+                <li><a href="/dashboard/stats">Statistiche</a></li>
+                <li><a href="/dashboard/settings">Impostazioni</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <section class="overview">
+            <h2>Panoramica</h2>
+            <div class="stats-cards">
+                <div class="card">
+                    <h3>Totale Log</h3>
+                    <p class="big-number">{{ stats.total_logs }}</p>
+                </div>
+                <div class="card">
+                    <h3>Errori</h3>
+                    <p class="big-number">{{ stats.logs_by_level.error + stats.logs_by_level.critical }}</p>
+                </div>
+                <div class="card">
+                    <h3>Avvisi</h3>
+                    <p class="big-number">{{ stats.logs_by_level.warning }}</p>
+                </div>
+                <div class="card">
+                    <h3>Info</h3>
+                    <p class="big-number">{{ stats.logs_by_level.info }}</p>
+                </div>
+            </div>
+            
+            <div class="charts-container">
+                <div class="chart">
+                    <h3>Log per livello</h3>
+                    <canvas id="levelChart"></canvas>
+                </div>
+                <div class="chart">
+                    <h3>Log per progetto</h3>
+                    <canvas id="projectChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <section class="recent-logs">
+            <h2>Log Recenti</h2>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Progetto</th>
+                            <th>Livello</th>
+                            <th>Modulo</th>
+                            <th>Messaggio</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in logs %}
+                        <tr class="log-level-{{ log.level }}">
+                            <td>{{ log.timestamp }}</td>
+                            <td>{{ log.project }}</td>
+                            <td>{{ log.level }}</td>
+                            <td>{{ log.module }}</td>
+                            <td>{{ log.message }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>&copy; 2023 PramaIA LogService</p>
+    </footer>
+
+    <script>
+        // Dati per i grafici
+        const levelData = {
+            labels: ['Debug', 'Info', 'Warning', 'Error', 'Critical'],
+            datasets: [{
+                label: 'Log per Livello',
+                data: [
+                    {{ stats.logs_by_level.debug }},
+                    {{ stats.logs_by_level.info }},
+                    {{ stats.logs_by_level.warning }},
+                    {{ stats.logs_by_level.error }},
+                    {{ stats.logs_by_level.critical }}
+                ],
+                backgroundColor: [
+                    '#4CAF50',
+                    '#2196F3',
+                    '#FFC107',
+                    '#FF5722',
+                    '#F44336'
+                ]
+            }]
+        };
+
+        const projectData = {
+            labels: ['Server', 'PDK', 'Agents', 'Plugins', 'Other'],
+            datasets: [{
+                label: 'Log per Progetto',
+                data: [
+                    {{ stats.logs_by_project.PramaIAServer }},
+                    {{ stats.logs_by_project['PramaIA-PDK'] }},
+                    {{ stats.logs_by_project['PramaIA-Agents'] }},
+                    {{ stats.logs_by_project['PramaIA-Plugins'] }},
+                    {{ stats.logs_by_project.other }}
+                ],
+                backgroundColor: [
+                    '#673AB7',
+                    '#3F51B5',
+                    '#009688',
+                    '#795548',
+                    '#607D8B'
+                ]
+            }]
+        };
+
+        // Configurazione grafici
+        window.addEventListener('load', function() {
+            const levelCtx = document.getElementById('levelChart').getContext('2d');
+            new Chart(levelCtx, {
+                type: 'pie',
+                data: levelData,
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                        },
+                        title: {
+                            display: true,
+                            text: 'Log per Livello'
+                        }
+                    }
+                }
+            });
+
+            const projectCtx = document.getElementById('projectChart').getContext('2d');
+            new Chart(projectCtx, {
+                type: 'pie',
+                data: projectData,
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                        },
+                        title: {
+                            display: true,
+                            text: 'Log per Progetto'
+                        }
+                    }
+                }
+            });
+        });
+    </script>
+</body>
+</html>

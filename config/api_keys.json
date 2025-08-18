@@ -1,0 +1,26 @@
+{
+    "server_key": {
+        "name": "PramaIAServer",
+        "key": "pramaiaserver_api_key_123456",
+        "projects": ["PramaIAServer"],
+        "expiry": null
+    },
+    "pdk_key": {
+        "name": "PramaIA-PDK",
+        "key": "pramaiapdk_api_key_123456",
+        "projects": ["PramaIA-PDK"],
+        "expiry": null
+    },
+    "agents_key": {
+        "name": "PramaIA-Agents",
+        "key": "pramaiaagents_api_key_123456",
+        "projects": ["PramaIA-Agents"],
+        "expiry": null
+    },
+    "admin_key": {
+        "name": "Admin",
+        "key": "pramaiaadmin_api_key_123456",
+        "projects": ["PramaIAServer", "PramaIA-PDK", "PramaIA-Agents", "PramaIA-Plugins", "other"],
+        "expiry": null
+    }
+}

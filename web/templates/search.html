@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <link rel="stylesheet" href="/static/css/main.css">
+</head>
+<body>
+    <header>
+        <div class="logo">
+            <h1>PramaIA LogService</h1>
+        </div>
+        <nav>
+            <ul>
+                <li><a href="/dashboard">Dashboard</a></li>
+                <li><a href="/dashboard/search">Ricerca</a></li>
+                <li><a href="/dashboard/stats">Statistiche</a></li>
+                <li><a href="/dashboard/settings">Impostazioni</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <section class="search-section">
+            <h2>Ricerca Log</h2>
+            <form class="search-form" action="/dashboard/search" method="get">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="project">Progetto</label>
+                        <select id="project" name="project">
+                            <option value="">Tutti</option>
+                            <option value="PramaIAServer" {% if project == 'PramaIAServer' %}selected{% endif %}>PramaIAServer</option>
+                            <option value="PramaIA-PDK" {% if project == 'PramaIA-PDK' %}selected{% endif %}>PramaIA-PDK</option>
+                            <option value="PramaIA-Agents" {% if project == 'PramaIA-Agents' %}selected{% endif %}>PramaIA-Agents</option>
+                            <option value="PramaIA-Plugins" {% if project == 'PramaIA-Plugins' %}selected{% endif %}>PramaIA-Plugins</option>
+                            <option value="other" {% if project == 'other' %}selected{% endif %}>Altro</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="level">Livello</label>
+                        <select id="level" name="level">
+                            <option value="">Tutti</option>
+                            <option value="debug" {% if level == 'debug' %}selected{% endif %}>Debug</option>
+                            <option value="info" {% if level == 'info' %}selected{% endif %}>Info</option>
+                            <option value="warning" {% if level == 'warning' %}selected{% endif %}>Warning</option>
+                            <option value="error" {% if level == 'error' %}selected{% endif %}>Error</option>
+                            <option value="critical" {% if level == 'critical' %}selected{% endif %}>Critical</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="module">Modulo</label>
+                        <input type="text" id="module" name="module" value="{{ module or '' }}" placeholder="Nome del modulo">
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="start_date">Data inizio</label>
+                        <input type="datetime-local" id="start_date" name="start_date" value="{{ start_date or '' }}">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="end_date">Data fine</label>
+                        <input type="datetime-local" id="end_date" name="end_date" value="{{ end_date or '' }}">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="limit">Limite risultati</label>
+                        <input type="number" id="limit" name="limit" value="{{ limit }}" min="1" max="1000">
+                    </div>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="btn primary">Cerca</button>
+                    <button type="reset" class="btn secondary">Reimposta</button>
+                </div>
+            </form>
+        </section>
+
+        <section class="results-section">
+            <h2>Risultati</h2>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Progetto</th>
+                            <th>Livello</th>
+                            <th>Modulo</th>
+                            <th>Messaggio</th>
+                            <th>Azioni</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in logs %}
+                        <tr class="log-level-{{ log.level }}">
+                            <td>{{ log.timestamp }}</td>
+                            <td>{{ log.project }}</td>
+                            <td>{{ log.level }}</td>
+                            <td>{{ log.module }}</td>
+                            <td>{{ log.message }}</td>
+                            <td>
+                                <button class="btn small" onclick="showDetails('{{ log.id }}')">Dettagli</button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="pagination">
+                {% if offset > 0 %}
+                <a href="?project={{ project or '' }}&level={{ level or '' }}&module={{ module or '' }}&start_date={{ start_date or '' }}&end_date={{ end_date or '' }}&limit={{ limit }}&offset={{ offset - limit if offset - limit >= 0 else 0 }}" class="btn">Precedente</a>
+                {% endif %}
+                
+                {% if logs|length >= limit %}
+                <a href="?project={{ project or '' }}&level={{ level or '' }}&module={{ module or '' }}&start_date={{ start_date or '' }}&end_date={{ end_date or '' }}&limit={{ limit }}&offset={{ offset + limit }}" class="btn">Successivo</a>
+                {% endif %}
+            </div>
+        </section>
+    </main>
+
+    <div id="log-details-modal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h3>Dettagli Log</h3>
+            <div id="log-details-container">
+                <!-- I dettagli del log verranno inseriti qui tramite JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <p>&copy; 2023 PramaIA LogService</p>
+    </footer>
+
+    <script>
+        // Funzione per mostrare i dettagli del log in un modal
+        function showDetails(logId) {
+            fetch(`/api/logs/${logId}`)
+                .then(response => response.json())
+                .then(log => {
+                    const container = document.getElementById('log-details-container');
+                    container.innerHTML = `
+                        <div class="log-details">
+                            <p><strong>ID:</strong> ${log.id}</p>
+                            <p><strong>Timestamp:</strong> ${log.timestamp}</p>
+                            <p><strong>Progetto:</strong> ${log.project}</p>
+                            <p><strong>Livello:</strong> ${log.level}</p>
+                            <p><strong>Modulo:</strong> ${log.module}</p>
+                            <p><strong>Messaggio:</strong> ${log.message}</p>
+                            <div class="details-section">
+                                <h4>Dettagli</h4>
+                                <pre>${JSON.stringify(log.details, null, 2)}</pre>
+                            </div>
+                            <div class="context-section">
+                                <h4>Contesto</h4>
+                                <pre>${JSON.stringify(log.context, null, 2)}</pre>
+                            </div>
+                        </div>
+                    `;
+                    
+                    // Mostra il modal
+                    const modal = document.getElementById('log-details-modal');
+                    modal.style.display = 'block';
+                })
+                .catch(error => {
+                    console.error('Errore nel recupero dei dettagli del log:', error);
+                });
+        }
+        
+        // Chiudi il modal quando l'utente clicca sulla X
+        document.querySelector('.close').addEventListener('click', function() {
+            document.getElementById('log-details-modal').style.display = 'none';
+        });
+        
+        // Chiudi il modal quando l'utente clicca fuori dal modal
+        window.addEventListener('click', function(event) {
+            const modal = document.getElementById('log-details-modal');
+            if (event.target == modal) {
+                modal.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
