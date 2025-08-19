@@ -185,7 +185,7 @@
                     </thead>
                     <tbody>
                         {% for key in api_keys %}
-                        <tr data-key-id="{{ key.id }}" data-key-name="{{ key.name }}">
+                        <tr data-key-id="{{ key.id|default('unknown') }}" data-key-name="{{ key.name|default('API Key') }}">
                             <td>{{ key.name }}</td>
                             <td><span class="api-key-masked">{{ key.key_masked }}</span></td>
                             <td>{{ key.project }}</td>
@@ -468,26 +468,30 @@ logger.info("API richiesta ricevuta",
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             // Variabili globali per i modals
-            const createModal = document.getElementById('create-api-key-modal');
-            const showModal = document.getElementById('show-api-key-modal');
+            const createApiKeyModal = document.getElementById('create-api-key-modal');
+            const showApiKeyModal = document.getElementById('show-api-key-modal');
             const confirmDeleteModal = document.getElementById('confirm-delete-modal');
             let currentKeyId = null;
             
             // Funzione per mostrare un modal
-            function showModal(modal) {
-                modal.style.display = 'block';
+            function openModal(modal) {
+                if (modal) {
+                    modal.style.display = 'block';
+                }
             }
             
             // Funzione per nascondere un modal
-            function hideModal(modal) {
-                modal.style.display = 'none';
+            function closeModal(modal) {
+                if (modal) {
+                    modal.style.display = 'none';
+                }
             }
             
             // Gestione del pulsante "Aggiungi Chiave API"
             const addKeyButton = document.getElementById('add-api-key');
             if (addKeyButton) {
                 addKeyButton.addEventListener('click', function() {
-                    showModal(createModal);
+                    openModal(createApiKeyModal);
                 });
             }
             
@@ -534,11 +538,16 @@ logger.info("API richiesta ricevuta",
                         document.getElementById('new-key-projects').textContent = result.projects.join(', ');
                         
                         // Nascondi il modal di creazione e mostra quello della chiave
-                        hideModal(createModal);
-                        showModal(showModal);
+                        closeModal(createApiKeyModal);
+                        openModal(showApiKeyModal);
                         
                         // Resetta il form
                         createKeyForm.reset();
+                        
+                        // Ricarica la pagina dopo 5 secondi per mostrare la nuova chiave nella tabella
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 5000);
                         
                     } catch (error) {
                         alert(`Errore durante la creazione della API key: ${error.message}`);
@@ -590,12 +599,13 @@ logger.info("API richiesta ricevuta",
                             // Mostra la nuova chiave
                             document.getElementById('new-key-name').textContent = result.name;
                             document.getElementById('new-key-value').textContent = result.key;
+                            document.getElementById('new-key-projects').textContent = keyName;
                             
                             // Aggiorna la chiave mascherata nella tabella
                             row.querySelector('.api-key-masked').textContent = result.key_masked;
                             
                             // Mostra il modal con la nuova chiave
-                            showModal(showModal);
+                            openModal(showApiKeyModal);
                             
                         } catch (error) {
                             alert(`Errore durante la rigenerazione della API key: ${error.message}`);
@@ -617,7 +627,7 @@ logger.info("API richiesta ricevuta",
                     currentKeyId = keyId;
                     
                     // Mostra il modal di conferma
-                    showModal(confirmDeleteModal);
+                    openModal(confirmDeleteModal);
                 });
             });
             
@@ -646,10 +656,13 @@ logger.info("API richiesta ricevuta",
                         const result = await response.json();
                         
                         // Nascondi il modal di conferma
-                        hideModal(confirmDeleteModal);
+                        closeModal(confirmDeleteModal);
                         
                         // Rimuovi la riga dalla tabella
-                        document.querySelector(`tr[data-key-id="${currentKeyId}"]`).remove();
+                        const row = document.querySelector(`tr[data-key-id="${currentKeyId}"]`);
+                        if (row) {
+                            row.remove();
+                        }
                         
                         alert(result.message);
                         
@@ -664,14 +677,14 @@ logger.info("API richiesta ricevuta",
             // Gestione dei pulsanti di chiusura dei modals
             document.querySelectorAll('.close, .modal-cancel, .modal-close').forEach(button => {
                 button.addEventListener('click', function() {
-                    hideModal(this.closest('.modal'));
+                    closeModal(this.closest('.modal'));
                 });
             });
             
             // Chiudi i modals quando si clicca fuori
             window.addEventListener('click', function(event) {
                 if (event.target.classList.contains('modal')) {
-                    hideModal(event.target);
+                    closeModal(event.target);
                 }
             });
         });
