@@ -7,7 +7,6 @@ from fastapi import APIRouter, Depends, HTTPException, status, Request, Body
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 import uuid
-import json
 
 from core.models import LogEntry, LogLevel, LogProject
 from core.log_manager import LogManager
@@ -69,55 +68,6 @@ async def get_logs(
         offset=offset
     )
     return logs
-
-@router.get("/{log_id}", response_model=Dict[str, Any])
-async def get_log_by_id(
-    log_id: str,
-    api_key: str = Depends(get_api_key)
-):
-    """
-    Recupera una voce di log specifica in base all'ID.
-    
-    Richiede un API key valido per l'autenticazione.
-    """
-    # Aggiungiamo il metodo get_log_by_id al LogManager
-    conn = log_manager._get_connection()
-    cursor = conn.cursor()
-    
-    # Esegui la query per trovare il log con l'ID specificato
-    cursor.execute("SELECT * FROM logs WHERE id = ?", (log_id,))
-    row = cursor.fetchone()
-    
-    if not row:
-        conn.close()
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Log con ID {log_id} non trovato"
-        )
-    
-    # Converti in dizionario
-    log_dict = dict(row)
-    
-    # Converti JSON in dizionari con gestione degli errori
-    if log_dict["details"]:
-        try:
-            log_dict["details"] = json.loads(log_dict["details"])
-        except Exception as e:
-            import logging
-            logging.error(f"Errore durante il parsing JSON dei dettagli per il log {log_id}: {str(e)}")
-            # Invece di avere valori undefined, manteniamo almeno i dati originali
-            log_dict["details"] = {"error": "Formato JSON non valido", "raw_data": log_dict["details"]}
-    
-    if log_dict["context"]:
-        try:
-            log_dict["context"] = json.loads(log_dict["context"])
-        except Exception as e:
-            import logging
-            logging.error(f"Errore durante il parsing JSON del contesto per il log {log_id}: {str(e)}")
-            log_dict["context"] = {"error": "Formato JSON non valido", "raw_data": log_dict["context"]}
-    
-    conn.close()
-    return log_dict
 
 @router.get("/stats")
 async def get_log_stats(

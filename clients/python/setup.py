@@ -2,7 +2,7 @@
 Setup script per il client Python di PramaIA-LogService.
 """
 
-from setuptools import setup, find_packages
+from setuptools import setup
 
 setup(
     name="pramaialog",
@@ -10,7 +10,7 @@ setup(
     description="Client Python per il servizio di logging PramaIA",
     author="PramaIA Team",
     author_email="info@pramaia.com",
-    packages=find_packages(),
+    py_modules=["pramaialog"],  # Usa py_modules invece di packages
     install_requires=[
         "requests>=2.25.0",
     ],

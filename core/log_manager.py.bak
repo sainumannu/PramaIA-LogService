@@ -95,19 +95,9 @@ class LogManager:
         conn = self._get_connection()
         cursor = conn.cursor()
         
-        # Converti le strutture dati in JSON con gestione degli errori
-        try:
-            details_json = json.dumps(log_entry.details) if log_entry.details else None
-        except Exception as e:
-            logger.error(f"Errore durante la serializzazione JSON dei dettagli per il log {log_entry.id}: {str(e)}")
-            # Salva una versione semplificata che può essere serializzata
-            details_json = json.dumps({"error": "Impossibile serializzare i dettagli originali", "message": str(e)})
-            
-        try:    
-            context_json = json.dumps(log_entry.context) if log_entry.context else None
-        except Exception as e:
-            logger.error(f"Errore durante la serializzazione JSON del contesto per il log {log_entry.id}: {str(e)}")
-            context_json = json.dumps({"error": "Impossibile serializzare il contesto originale", "message": str(e)})
+        # Converti le strutture dati in JSON
+        details_json = json.dumps(log_entry.details) if log_entry.details else None
+        context_json = json.dumps(log_entry.context) if log_entry.context else None
         
         # Inserisci il log
         cursor.execute('''
@@ -147,19 +137,9 @@ class LogManager:
         
         try:
             for log_entry in log_entries:
-                # Converti le strutture dati in JSON con gestione degli errori
-                try:
-                    details_json = json.dumps(log_entry.details) if log_entry.details else None
-                except Exception as e:
-                    logger.error(f"Errore durante la serializzazione JSON dei dettagli per il log {log_entry.id}: {str(e)}")
-                    # Salva una versione semplificata che può essere serializzata
-                    details_json = json.dumps({"error": "Impossibile serializzare i dettagli originali", "message": str(e)})
-                    
-                try:    
-                    context_json = json.dumps(log_entry.context) if log_entry.context else None
-                except Exception as e:
-                    logger.error(f"Errore durante la serializzazione JSON del contesto per il log {log_entry.id}: {str(e)}")
-                    context_json = json.dumps({"error": "Impossibile serializzare il contesto originale", "message": str(e)})
+                # Converti le strutture dati in JSON
+                details_json = json.dumps(log_entry.details) if log_entry.details else None
+                context_json = json.dumps(log_entry.context) if log_entry.context else None
                 
                 # Inserisci il log
                 cursor.execute('''
@@ -257,21 +237,12 @@ class LogManager:
         for row in rows:
             log_dict = dict(row)
             
-            # Converti JSON in dizionari con gestione degli errori
+            # Converti JSON in dizionari
             if log_dict["details"]:
-                try:
-                    log_dict["details"] = json.loads(log_dict["details"])
-                except Exception as e:
-                    logger.error(f"Errore durante il parsing JSON dei dettagli per il log {log_dict['id']}: {str(e)}")
-                    # Invece di avere valori undefined, manteniamo almeno i dati originali
-                    log_dict["details"] = {"error": "Formato JSON non valido", "raw_data": log_dict["details"]}
+                log_dict["details"] = json.loads(log_dict["details"])
             
             if log_dict["context"]:
-                try:
-                    log_dict["context"] = json.loads(log_dict["context"])
-                except Exception as e:
-                    logger.error(f"Errore durante il parsing JSON del contesto per il log {log_dict['id']}: {str(e)}")
-                    log_dict["context"] = {"error": "Formato JSON non valido", "raw_data": log_dict["context"]}
+                log_dict["context"] = json.loads(log_dict["context"])
             
             results.append(log_dict)
         
@@ -320,7 +291,7 @@ class LogManager:
         total_logs = cursor.fetchone()["total"]
         
         # Query per conteggio per livello
-        level_query = query.replace("COUNT(*) as total", "level, COUNT(*) as count") + " GROUP BY level"
+        level_query = query.replace("COUNT(*)", "level, COUNT(*) as count") + " GROUP BY level"
         cursor.execute(level_query, params)
         level_rows = cursor.fetchall()
         
@@ -332,7 +303,7 @@ class LogManager:
             logs_by_level[row["level"]] = row["count"]
         
         # Query per conteggio per progetto
-        project_query = query.replace("COUNT(*) as total", "project, COUNT(*) as count") + " GROUP BY project"
+        project_query = query.replace("COUNT(*)", "project, COUNT(*) as count") + " GROUP BY project"
         cursor.execute(project_query, params)
         project_rows = cursor.fetchall()
         
@@ -344,7 +315,7 @@ class LogManager:
             logs_by_project[row["project"]] = row["count"]
         
         # Query per conteggio per modulo (top 10)
-        module_query = query.replace("COUNT(*) as total", "module, COUNT(*) as count") + " GROUP BY module ORDER BY count DESC LIMIT 10"
+        module_query = query.replace("COUNT(*)", "module, COUNT(*) as count") + " GROUP BY module ORDER BY count DESC LIMIT 10"
         cursor.execute(module_query, params)
         module_rows = cursor.fetchall()
         
@@ -353,12 +324,10 @@ class LogManager:
             logs_by_module[row["module"]] = row["count"]
         
         # Determina il periodo di tempo
-        time_period = {}
-        
-        if start_date:
-            time_period["start"] = start_date
-        if end_date:
-            time_period["end"] = end_date
+        time_period = {
+            "start": start_date.isoformat() if start_date else None,
+            "end": end_date.isoformat() if end_date else None
+        }
         
         if not start_date or not end_date:
             # Se non specificato, prendi il periodo effettivo dai dati
@@ -367,29 +336,21 @@ class LogManager:
             time_row = cursor.fetchone()
             
             if not start_date and time_row["min_time"]:
-                try:
-                    time_period["start"] = datetime.fromisoformat(time_row["min_time"])
-                except ValueError:
-                    # Fallback: utilizza la data corrente
-                    time_period["start"] = datetime.now()
+                time_period["start"] = time_row["min_time"]
             
             if not end_date and time_row["max_time"]:
-                try:
-                    time_period["end"] = datetime.fromisoformat(time_row["max_time"])
-                except ValueError:
-                    # Fallback: utilizza la data corrente
-                    time_period["end"] = datetime.now()
+                time_period["end"] = time_row["max_time"]
         
         conn.close()
         
         # Crea l'oggetto statistiche
-        stats = LogStats(
-            total_logs=total_logs,
-            logs_by_level=logs_by_level,
-            logs_by_project=logs_by_project,
-            logs_by_module=logs_by_module,
-            time_period=time_period
-        )
+        stats = {
+            "total_logs": total_logs,
+            "logs_by_level": logs_by_level,
+            "logs_by_project": logs_by_project,
+            "logs_by_module": logs_by_module,
+            "time_period": time_period
+        }
         
         return stats
     
@@ -436,42 +397,6 @@ class LogManager:
         conn.close()
         
         logger.info(f"Eliminati {deleted_count} log più vecchi di {days_to_keep} giorni")
-        return deleted_count
-    
-    def reset_logs(
-        self,
-        cutoff_date: datetime,
-        project: Optional[LogProject] = None
-    ) -> int:
-        """
-        Elimina i log più recenti fino alla data di cutoff.
-        
-        Args:
-            cutoff_date: Data di cutoff (elimina log più recenti)
-            project: Filtra per progetto
-            
-        Returns:
-            Numero di log eliminati
-        """
-        conn = self._get_connection()
-        cursor = conn.cursor()
-        
-        # Costruisci la query
-        query = "DELETE FROM logs WHERE timestamp >= ?"
-        params = [cutoff_date.isoformat()]
-        
-        if project:
-            query += " AND project = ?"
-            params.append(project)
-        
-        # Esegui la query
-        cursor.execute(query, params)
-        deleted_count = cursor.rowcount
-        
-        conn.commit()
-        conn.close()
-        
-        logger.info(f"Reset completato: eliminati {deleted_count} log più recenti della data {cutoff_date.isoformat()}")
         return deleted_count
     
     def get_logs_count(
@@ -568,7 +493,6 @@ class LogManager:
         import tempfile
         from datetime import datetime, timedelta
         
-        conn = None
         try:
             # Calcola la data soglia
             threshold_date = (datetime.now() - timedelta(days=days_threshold)).isoformat()
@@ -650,11 +574,8 @@ class LogManager:
         except Exception as e:
             logger.error(f"Errore durante la compressione dei log: {str(e)}")
             # Assicurati che la connessione venga chiusa in caso di errore
-            if conn:
-                try:
-                    conn.close()
-                except:
-                    pass  # Ignora errori durante la chiusura della connessione
+            if 'conn' in locals() and conn:
+                conn.close()
             return 0
             
     def cleanup_compressed_logs(self, days_to_keep: int = 365) -> int:
@@ -667,7 +588,6 @@ class LogManager:
         Returns:
             Numero di archivi eliminati
         """
-        conn = None
         try:
             from datetime import datetime, timedelta
             
@@ -683,7 +603,11 @@ class LogManager:
             if not cursor.fetchone():
                 conn.close()
                 return 0
-                
+        except Exception as e:
+            logger.error(f"Errore durante l'inizializzazione della pulizia dei log compressi: {str(e)}")
+            return 0
+            
+        try:
             # Ottieni gli archivi da eliminare
             query = "SELECT DISTINCT archive_path FROM compressed_logs WHERE compressed_at < ?"
             cursor.execute(query, (cutoff_date,))
@@ -716,13 +640,13 @@ class LogManager:
             return deleted_count
         except Exception as e:
             logger.error(f"Errore durante la pulizia dei log compressi: {str(e)}")
-            if conn:
-                try:
-                    if conn.in_transaction:
-                        conn.rollback()
+            try:
+                if conn and conn.in_transaction:
+                    conn.rollback()
+                if conn:
                     conn.close()
-                except:
-                    pass  # Ignora errori durante la chiusura della connessione
+            except:
+                pass  # Ignora errori durante la chiusura della connessione
             return 0
 
     def run_maintenance(self):

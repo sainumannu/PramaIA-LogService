@@ -5,6 +5,37 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ title }}</title>
     <link rel="stylesheet" href="/static/css/main.css">
+    <style>
+        /* Stili aggiuntivi per la visualizzazione dei dettagli dei log */
+        .warning {
+            background-color: #fff3cd;
+            border: 1px solid #ffeeba;
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 10px;
+            color: #856404;
+        }
+        
+        .warning pre {
+            background-color: #fff9e6;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        
+        .modal-content {
+            max-width: 800px;
+            width: 80%;
+        }
+        
+        .log-details pre {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            max-height: 300px;
+        }
+    </style>
 </head>
 <body>
     <header>
@@ -15,9 +46,9 @@
             <ul>
                 <li><a href="/dashboard">Dashboard</a></li>
                 <li><a href="/dashboard/search" class="active">Ricerca</a></li>
-                <li><a href="/dashboard/stats">Statistiche</a></li>
+                <!-- <li><a href="/dashboard/stats">Statistiche</a></li> -->
                 <li><a href="/dashboard/logservice">LogService</a></li>
-                <li><a href="/dashboard/settings">Impostazioni</a></li>
+                <!-- <li><a href="/dashboard/settings">Impostazioni</a></li> -->
             </ul>
         </nav>
     </header>
@@ -141,10 +172,51 @@
     <script>
         // Funzione per mostrare i dettagli del log in un modal
         function showDetails(logId) {
-            fetch(`/api/logs/${logId}`)
-                .then(response => response.json())
+            fetch(`/api/logs/${logId}`, {
+                headers: {
+                    'X-API-Key': 'pramaiaadmin_api_key_123456'  // Chiave API admin per accedere a tutti i log
+                }
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Errore ${response.status}: ${response.statusText}`);
+                    }
+                    return response.json();
+                })
                 .then(log => {
                     const container = document.getElementById('log-details-container');
+                    
+                    // Funzione per visualizzare meglio gli oggetti details/context
+                    function formatJsonDisplay(obj) {
+                        if (!obj) return '<em>Nessun dato</em>';
+                        
+                        // Controlla se l'oggetto è vuoto
+                        if (Object.keys(obj).length === 0) {
+                            return '<em>Oggetto vuoto</em>';
+                        }
+                        
+                        // Controlla se ci sono campi "undefined"
+                        let hasUndefinedValues = false;
+                        for (const key in obj) {
+                            if (obj[key] === undefined || obj[key] === 'undefined') {
+                                hasUndefinedValues = true;
+                                break;
+                            }
+                        }
+                        
+                        if (hasUndefinedValues) {
+                            // Se ci sono valori undefined, mostra un messaggio di avviso
+                            return `<div class="warning">
+                                <p>Attenzione: questo oggetto contiene valori non definiti.</p>
+                                <pre>${JSON.stringify(obj, (key, value) => 
+                                    value === undefined ? "[valore non definito]" : value, 2)}</pre>
+                            </div>`;
+                        } else {
+                            // Altrimenti, mostra normalmente
+                            return `<pre>${JSON.stringify(obj, null, 2)}</pre>`;
+                        }
+                    }
+                    
                     container.innerHTML = `
                         <div class="log-details">
                             <p><strong>ID:</strong> ${log.id}</p>
@@ -155,11 +227,11 @@
                             <p><strong>Messaggio:</strong> ${log.message}</p>
                             <div class="details-section">
                                 <h4>Dettagli</h4>
-                                <pre>${JSON.stringify(log.details, null, 2)}</pre>
+                                ${formatJsonDisplay(log.details)}
                             </div>
                             <div class="context-section">
                                 <h4>Contesto</h4>
-                                <pre>${JSON.stringify(log.context, null, 2)}</pre>
+                                ${formatJsonDisplay(log.context)}
                             </div>
                         </div>
                     `;
@@ -170,6 +242,7 @@
                 })
                 .catch(error => {
                     console.error('Errore nel recupero dei dettagli del log:', error);
+                    alert('Errore nel recupero dei dettagli del log: ' + error.message);
                 });
         }
         

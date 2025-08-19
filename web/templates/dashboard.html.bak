@@ -6,30 +6,7 @@
     <title>{{ title }}</title>
     <link rel="stylesheet" href="/static/css/main.css">
     <!-- <script src="/static/js/charts.min.js"></script> -->
-
-    <style>
-        .actions {
-            margin-top: 10px;
-            margin-bottom: 20px;
-            text-align: right;
-        }
-        .btn-danger {
-            background-color: #d9534f;
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        .btn-danger:hover {
-            background-color: #c9302c;
-        }
-        .btn-danger:disabled {
-            background-color: #999;
-            cursor: not-allowed;
-        }
-    </style>
-    </head>
+</head>
 <body>
     <header>
         <div class="logo">
@@ -84,10 +61,6 @@
 
         <section class="recent-logs">
             <h2>Log Recenti</h2>
-            <div class="actions">
-                <button id="reset-logs" class="btn-danger">Reset Log</button>
-            </div>
-            
             <div class="table-container">
                 <table>
                     <thead>
@@ -204,44 +177,5 @@
         });
     </script>
     -->
-
-    <script>
-        // Funzionalità per il pulsante di reset dei log
-        document.addEventListener('DOMContentLoaded', function() {
-            const resetButton = document.getElementById('reset-logs');
-            
-            if (resetButton) {
-                resetButton.addEventListener('click', async function() {
-                    if (confirm('Sei sicuro di voler resettare i log? Questa operazione eliminerà tutti i log delle ultime 24 ore e non può essere annullata.')) {
-                        
-                        resetButton.disabled = true;
-                        resetButton.textContent = 'Reset in corso...';
-                        
-                        try {
-                            const response = await fetch('/api/logs/reset', {
-                                method: 'DELETE',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                    'X-API-Key': 'pramaiaadmin_api_key_123456'  // Usa una chiave API valida per il tuo ambiente
-                                }
-                            });
-                            
-                            const result = await response.json();
-                            
-                            alert(`Reset completato: ${result.message}`);
-                            
-                            // Ricarica la pagina per mostrare i cambiamenti
-                            window.location.reload();
-                            
-                        } catch (error) {
-                            alert(`Errore durante il reset dei log: ${error.message}`);
-                            resetButton.disabled = false;
-                            resetButton.textContent = 'Reset Log';
-                        }
-                    }
-                });
-            }
-        });
-    </script>
-    </body>
+</body>
 </html>
