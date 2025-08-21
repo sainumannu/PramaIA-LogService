@@ -12,6 +12,9 @@
             margin-top: 10px;
             margin-bottom: 20px;
             text-align: right;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
         }
         .btn-danger {
             background-color: #d9534f;
@@ -25,6 +28,21 @@
             background-color: #c9302c;
         }
         .btn-danger:disabled {
+            background-color: #999;
+            cursor: not-allowed;
+        }
+        .btn-warning {
+            background-color: #f0ad4e;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .btn-warning:hover {
+            background-color: #ec971f;
+        }
+        .btn-warning:disabled {
             background-color: #999;
             cursor: not-allowed;
         }
@@ -85,7 +103,8 @@
         <section class="recent-logs">
             <h2>Log Recenti</h2>
             <div class="actions">
-                <button id="reset-logs" class="btn-danger">Reset Log</button>
+                <button id="reset-recent-logs" class="btn-warning">Reset Log Recenti (24h)</button>
+                <button id="reset-all-logs" class="btn-danger">Reset Tutti i Log</button>
             </div>
             
             <div class="table-container">
@@ -206,39 +225,88 @@
     -->
 
     <script>
-        // Funzionalità per il pulsante di reset dei log
+        // Funzionalità per i pulsanti di reset dei log
         document.addEventListener('DOMContentLoaded', function() {
-            const resetButton = document.getElementById('reset-logs');
+            const resetRecentButton = document.getElementById('reset-recent-logs');
+            const resetAllButton = document.getElementById('reset-all-logs');
             
-            if (resetButton) {
-                resetButton.addEventListener('click', async function() {
-                    if (confirm('Sei sicuro di voler resettare i log? Questa operazione eliminerà tutti i log delle ultime 24 ore e non può essere annullata.')) {
+            // Funzione per reset logs (ultimi N giorni)
+            async function resetLogsRecent(days, button, confirmMessage) {
+                if (confirm(confirmMessage)) {
+                    button.disabled = true;
+                    const originalText = button.textContent;
+                    button.textContent = 'Reset in corso...';
+                    
+                    try {
+                        // Usa l'endpoint reset per i log recenti
+                        const response = await fetch('/api/logs/reset', {
+                            method: 'DELETE',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-API-Key': 'pramaiaadmin_api_key_123456'  // Usa una chiave API valida per il tuo ambiente
+                            },
+                            body: JSON.stringify({ days: days })
+                        });
                         
-                        resetButton.disabled = true;
-                        resetButton.textContent = 'Reset in corso...';
+                        const result = await response.json();
                         
-                        try {
-                            const response = await fetch('/api/logs/reset', {
-                                method: 'DELETE',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                    'X-API-Key': 'pramaiaadmin_api_key_123456'  // Usa una chiave API valida per il tuo ambiente
-                                }
-                            });
-                            
-                            const result = await response.json();
-                            
-                            alert(`Reset completato: ${result.message}`);
-                            
-                            // Ricarica la pagina per mostrare i cambiamenti
-                            window.location.reload();
-                            
-                        } catch (error) {
-                            alert(`Errore durante il reset dei log: ${error.message}`);
-                            resetButton.disabled = false;
-                            resetButton.textContent = 'Reset Log';
-                        }
+                        alert(`Reset completato: ${result.message}`);
+                        
+                        // Ricarica la pagina per mostrare i cambiamenti
+                        window.location.reload();
+                        
+                    } catch (error) {
+                        alert(`Errore durante il reset dei log: ${error.message}`);
+                        button.disabled = false;
+                        button.textContent = originalText;
                     }
+                }
+            }
+            
+            // Funzione per eliminare TUTTI i log (usa cleanup con days_to_keep=0)
+            async function cleanupAllLogs(button, confirmMessage) {
+                if (confirm(confirmMessage)) {
+                    button.disabled = true;
+                    const originalText = button.textContent;
+                    button.textContent = 'Reset in corso...';
+                    
+                    try {
+                        // Usa l'endpoint cleanup con days_to_keep=0 per eliminare tutti i log
+                        const response = await fetch('/api/logs/cleanup', {
+                            method: 'DELETE',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-API-Key': 'pramaiaadmin_api_key_123456'  // Usa una chiave API valida per il tuo ambiente
+                            },
+                            body: JSON.stringify({ days_to_keep: 0 })
+                        });
+                        
+                        const result = await response.json();
+                        
+                        alert(`Reset completato: ${result.message}`);
+                        
+                        // Ricarica la pagina per mostrare i cambiamenti
+                        window.location.reload();
+                        
+                    } catch (error) {
+                        alert(`Errore durante il reset dei log: ${error.message}`);
+                        button.disabled = false;
+                        button.textContent = originalText;
+                    }
+                }
+            }
+            
+            // Configura il pulsante per i log recenti (24 ore)
+            if (resetRecentButton) {
+                resetRecentButton.addEventListener('click', function() {
+                    resetLogsRecent(1, resetRecentButton, 'Sei sicuro di voler resettare i log delle ultime 24 ore? Questa operazione non può essere annullata.');
+                });
+            }
+            
+            // Configura il pulsante per tutti i log
+            if (resetAllButton) {
+                resetAllButton.addEventListener('click', function() {
+                    cleanupAllLogs(resetAllButton, 'ATTENZIONE! Stai per eliminare TUTTI i log dal database. Questa operazione è irreversibile. Vuoi continuare?');
                 });
             }
         });
