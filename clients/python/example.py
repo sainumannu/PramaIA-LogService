@@ -5,17 +5,24 @@ Esempio di utilizzo del client Python per PramaIA-LogService.
 import time
 import random
 import traceback
+import os
 from pramaialog import PramaIALogger, LogLevel, LogProject
 
 def simulate_workflow_execution():
     """Simula l'esecuzione di un workflow con vari livelli di log."""
     
     # Crea un'istanza del logger
+    # Risolvi host dal .env / variabili d'ambiente se presenti
+    resolved_host = os.getenv('PRAMAIALOG_HOST') or os.getenv('BACKEND_URL') or 'http://localhost:8081'
+    port_env = os.getenv('PRAMAIALOG_PORT')
+    if port_env and ':' not in resolved_host.split('//')[-1]:
+        resolved_host = f"{resolved_host.rstrip('/')}:{port_env}"
+
     logger = PramaIALogger(
-        api_key="pramaiaserver_api_key_123456",  # Questa è una delle chiavi predefinite
+        api_key="pramaiaserver_api_key_123456",
         project=LogProject.SERVER,
         module="workflow_execution_service",
-        host="http://localhost:8081"  # Assicurati che il servizio sia in esecuzione su questa porta
+        host=resolved_host
     )
     
     # Simula l'avvio di un workflow

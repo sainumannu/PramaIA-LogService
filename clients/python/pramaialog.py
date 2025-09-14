@@ -27,6 +27,7 @@ logger.error("Errore durante il caricamento del workflow",
 """
 
 import requests
+import os
 import logging
 import json
 import queue
@@ -70,7 +71,7 @@ class PramaIALogger:
         api_key: str,
         project: LogProject,
         module: str,
-        host: str = "http://localhost:8081",
+        host: Optional[str] = None,
         buffer_size: int = 100,
         auto_flush: bool = True,
         flush_interval: int = 5,
@@ -94,7 +95,17 @@ class PramaIALogger:
         self.api_key = api_key
         self.project = project
         self.module = module
-        self.host = host.rstrip("/")
+        # Determina host dal parametro, oppure dalla variabile d'ambiente PRAMAIALOG_HOST,
+        # o usa il fallback "http://localhost:8081"
+        if host:
+            resolved_host = host
+        else:
+            resolved_host = os.getenv('PRAMAIALOG_HOST') or os.getenv('BACKEND_URL') or 'http://localhost:8081'
+        # Se PRAMAIALOG_PORT è impostata e resolved_host non contiene già una porta, aggiungila
+        port_env = os.getenv('PRAMAIALOG_PORT')
+        if port_env and ':' not in resolved_host.split('//')[-1]:
+            resolved_host = f"{resolved_host.rstrip('/') }:{port_env}"
+        self.host = resolved_host.rstrip("/")
         self.buffer_size = buffer_size
         self.auto_flush = auto_flush
         self.flush_interval = flush_interval
@@ -284,7 +295,7 @@ def setup_logger(
     api_key: str,
     project: Union[LogProject, str],
     module: str,
-    host: str = "http://localhost:8081"
+    host: Optional[str] = None
 ) -> PramaIALogger:
     """
     Configura e restituisce un'istanza di PramaIALogger.

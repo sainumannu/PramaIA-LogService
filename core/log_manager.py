@@ -640,11 +640,28 @@ class LogManager:
                 except sqlite3.IntegrityError:
                     # Ignora se il log è già stato compresso
                     pass
-            
+
+            # Elimina i log originali dalla tabella `logs` dopo che sono stati registrati in `compressed_logs`.
+            try:
+                log_ids = [log["id"] for log in logs_to_compress]
+                # Usa una query parametrizzata con il numero corretto di placeholder
+                placeholders = ",".join(["?" for _ in log_ids])
+                delete_query = f"DELETE FROM logs WHERE id IN ({placeholders})"
+                cursor.execute(delete_query, tuple(log_ids))
+            except Exception as e:
+                # Se la cancellazione fallisce, rollback e logga
+                conn.rollback()
+                logger.error(f"Errore durante l'eliminazione dei log originali dopo compressione: {str(e)}")
+                try:
+                    conn.close()
+                except:
+                    pass
+                return 0
+
             conn.commit()
             conn.close()
-            
-            logger.info(f"Compressi {len(logs_to_compress)} log nell'archivio {archive_path}")
+
+            logger.info(f"Compressi {len(logs_to_compress)} log nell'archivio {archive_path} e rimossi dalla tabella logs")
             return len(logs_to_compress)
             
         except Exception as e:

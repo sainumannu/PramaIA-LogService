@@ -11,34 +11,39 @@ PramaIA LogService è un servizio dedicato alla gestione centralizzata dei log p
 - **API REST** per l'invio dei log da qualsiasi servizio
 - **Categorizzazione** dei log per progetto, modulo e livello
 - **Rotazione automatica** dei file di log
-- **Pulizia programmata** in base alle politiche di retention configurabili
-- **Interfaccia web** per la visualizzazione e la ricerca nei log
-- **Client leggeri** per l'integrazione con i vari progetti
-- **Supporto per diversi livelli di log** (debug, info, warning, error, critical)
-- **Autenticazione** per proteggere le API e l'interfaccia web
-- **Gestione robusta** di valori null e strutture dati complesse nei dettagli dei log
-- **Compressione automatica** dei log vecchi per ottimizzare lo spazio
+import os
+import requests
+import uuid
+from datetime import datetime
 
-## Struttura del progetto
+# Configurazione (leggere da variabili d'ambiente o .env)
+# Preferito: BACKEND_URL (es. http://127.0.0.1:8081)
+# Alternativa compatibile: PRAMAIALOG_HOST + PRAMAIALOG_PORT
+backend = os.getenv('BACKEND_URL') or os.getenv('PRAMAIALOG_HOST') or 'http://localhost:8081'
+port = os.getenv('PRAMAIALOG_PORT')
+if port and ':' not in backend.split('//')[-1]:
+    backend = f"{backend.rstrip('/')}:{port}"
 
-```
-PramaIA-LogService/
-├── api/                  # API REST per la ricezione dei log
-├── core/                 # Logica di business del servizio
-│   ├── auth.py           # Gestione autenticazione
-│   ├── config.py         # Configurazioni
-│   ├── log_manager.py    # Gestione dei log
-│   └── models.py         # Modelli di dati
-├── logs/                 # Directory per l'archiviazione dei log
-│   └── archives/         # Archivi di log compressi
-├── web/                  # Interfaccia web per la visualizzazione dei log
-│   ├── static/           # Asset statici (CSS, JS)
-│   └── templates/        # Template HTML
-├── clients/              # Client per l'integrazione con altri servizi
-├── config/               # Configurazione del servizio
-└── docs/                 # Documentazione
-    ├── LOGSERVICE_DOCUMENTAZIONE.md  # Documentazione completa
-    └── RISOLUZIONE_PROBLEMA_UNDEFINED.md  # Guida alla risoluzione problemi
+LOG_SERVICE_URL = f"{backend}/api/logs"
+API_KEY = os.getenv('PRAMAIA_API_KEY', 'your_api_key_here')
+
+def send_log(message, level="info", module="example", details=None, context=None):
+    log_entry = {
+        "id": str(uuid.uuid4()),
+        "timestamp": datetime.now().isoformat(),
+        "project": "PramaIAServer",
+        "level": level,
+        "module": module,
+        "message": message,
+        "details": details or {},
+        "context": context or {}
+    }
+    response = requests.post(
+        LOG_SERVICE_URL,
+        json=log_entry,
+        headers={"X-API-Key": API_KEY}
+    )
+    return response.status_code == 201
 ```
 
 ## Integrazione

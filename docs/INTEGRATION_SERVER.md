@@ -24,14 +24,24 @@ Copy-Item -Path "C:\PramaIA\PramaIA-LogService\clients\python" -Destination "C:\
 from .pramaialog import PramaIALogger, LogLevel, LogProject, setup_logger
 ```
 
-## Configurazione
+# Configurazione
 
-Configura il logger nel file `backend/config/config.py` di PramaIAServer:
+Configura il logger nel file `backend/config/config.py` di PramaIAServer.
+Si raccomanda di leggere l'URL del LogService da variabili d'ambiente o dal file `.env`.
+
+Esempio:
 
 ```python
 # Configurazione logging centralizzato
-LOGGING_SERVICE_HOST = "http://localhost:8081"
-LOGGING_API_KEY = "pramaiaserver_api_key_123456"
+import os
+
+backend = os.getenv('BACKEND_URL') or os.getenv('PRAMAIALOG_HOST') or 'http://localhost:8081'
+port = os.getenv('PRAMAIALOG_PORT')
+if port and ':' not in backend.split('//')[-1]:
+    backend = f"{backend.rstrip('/')}:{port}"
+
+LOGGING_SERVICE_HOST = backend
+LOGGING_API_KEY = os.getenv('PRAMAIA_API_KEY', 'pramaiaserver_api_key_123456')
 ```
 
 ## Utilizzo

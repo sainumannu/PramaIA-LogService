@@ -35,6 +35,30 @@
             overflow-x: auto;
             max-height: 300px;
         }
+
+        .actions {
+            margin-top: 10px;
+            margin-bottom: 20px;
+            text-align: right;
+        }
+
+        .btn-danger {
+            background-color: #d9534f;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .btn-danger:hover {
+            background-color: #c9302c;
+        }
+
+        .btn-danger:disabled {
+            background-color: #999;
+            cursor: not-allowed;
+        }
     </style>
 </head>
 <body>
@@ -44,8 +68,7 @@
         </div>
         <nav>
             <ul>
-                <li><a href="/dashboard">Dashboard</a></li>
-                <li><a href="/dashboard/search" class="active">Ricerca</a></li>
+                <li><a href="/dashboard/" class="active">Ricerca</a></li>
                 <!-- <li><a href="/dashboard/stats">Statistiche</a></li> -->
                 <li><a href="/dashboard/logservice">LogService</a></li>
                 <!-- <li><a href="/dashboard/settings">Impostazioni</a></li> -->
@@ -56,7 +79,11 @@
     <main>
         <section class="search-section">
             <h2>Ricerca Log</h2>
-            <form class="search-form" action="/dashboard/search" method="get">
+            <div class="actions">
+                <button id="reset-logs" class="btn-danger">Reset Log Non Archiviati</button>
+                <button id="reset-all" class="btn-danger" style="margin-left:8px;">Reset Tutto (compresi archivi)</button>
+            </div>
+            <form class="search-form" action="/dashboard/" method="get">
                 <div class="form-row">
                     <div class="form-group">
                         <label for="project">Progetto</label>
@@ -107,7 +134,7 @@
                 
                 <div class="form-actions">
                     <button type="submit" class="btn primary">Cerca</button>
-                    <button type="reset" class="btn secondary">Reimposta</button>
+                    <button type="button" class="btn secondary" id="reset-filters">Reimposta</button>
                 </div>
             </form>
         </section>
@@ -170,7 +197,7 @@
     </footer>
 
     <script>
-        // Funzione per mostrare i dettagli del log in un modal
+    // Funzione per mostrare i dettagli del log in un modal
         function showDetails(logId) {
             fetch(`/api/logs/${logId}`, {
                 headers: {
@@ -256,6 +283,102 @@
             const modal = document.getElementById('log-details-modal');
             if (event.target == modal) {
                 modal.style.display = 'none';
+            }
+        });
+
+        // Gestione del pulsante di reset dei log
+        document.addEventListener('DOMContentLoaded', function() {
+            const resetLogsButton = document.getElementById('reset-logs');
+            const resetAllButton = document.getElementById('reset-all');
+            const resetFiltersButton = document.getElementById('reset-filters');
+
+            // Funzione per resettare i filtri e ricaricare la pagina senza parametri
+            if (resetFiltersButton) {
+                resetFiltersButton.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const form = document.querySelector('.search-form');
+                    if (form) {
+                        // Azzera tutti i campi del form
+                        form.reset();
+                        // Ricarica la pagina senza parametri di filtro
+                        window.location.href = '/dashboard/';
+                    }
+                });
+            }
+            
+            if (resetLogsButton) {
+                resetLogsButton.addEventListener('click', async function() {
+                    if (confirm('ATTENZIONE! Stai per eliminare tutti i log non ancora archiviati. Questa operazione è irreversibile. Vuoi continuare?')) {
+                        resetLogsButton.disabled = true;
+                        const originalText = resetLogsButton.textContent;
+                        resetLogsButton.textContent = 'Reset in corso...';
+                        
+                        try {
+                            // Chiamata all'API per resettare tutti i log non archiviati
+                            const response = await fetch('/api/logs/cleanup/unarchived', {
+                                method: 'DELETE',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-API-Key': 'pramaiaadmin_api_key_123456' // Usa la chiave amministrativa
+                                },
+                                body: JSON.stringify({})
+                            });
+                            
+                            if (!response.ok) {
+                                throw new Error(`Errore ${response.status}: ${response.statusText}`);
+                            }
+                            
+                            const result = await response.json();
+                            
+                            alert(`Reset completato: ${result.deleted_count} log eliminati.`);
+                            
+                            // Ricarica la pagina per aggiornare la lista dei log
+                            window.location.reload();
+                            
+                        } catch (error) {
+                            console.error('Errore durante il reset dei log:', error);
+                            alert('Errore durante il reset dei log: ' + error.message);
+                            
+                            resetLogsButton.disabled = false;
+                            resetLogsButton.textContent = originalText;
+                        }
+                    }
+                });
+            }
+
+            // Pulsante per resettare tutto (inclusi gli archivi)
+            if (resetAllButton) {
+                resetAllButton.addEventListener('click', async function() {
+                    if (confirm('ATTENZIONE! Stai per eliminare TUTTI i log, compresi gli archivi. Questa operazione è irreversibile. Vuoi continuare?')) {
+                        resetAllButton.disabled = true;
+                        const originalText = resetAllButton.textContent;
+                        resetAllButton.textContent = 'Reset globale in corso...';
+
+                        try {
+                            const response = await fetch('/api/logs/cleanup/all', {
+                                method: 'DELETE',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-API-Key': 'pramaiaadmin_api_key_123456'
+                                },
+                                body: JSON.stringify({})
+                            });
+
+                            if (!response.ok) {
+                                throw new Error(`Errore ${response.status}: ${response.statusText}`);
+                            }
+
+                            const result = await response.json();
+                            alert(`Reset completo: ${result.deleted_logs} log eliminati, ${result.deleted_compressed} riferimenti compressi rimossi, ${result.removed_archives} file archivio rimossi.`);
+                            window.location.reload();
+                        } catch (error) {
+                            console.error('Errore durante il reset globale:', error);
+                            alert('Errore durante il reset globale: ' + error.message);
+                            resetAllButton.disabled = false;
+                            resetAllButton.textContent = originalText;
+                        }
+                    }
+                });
             }
         });
     </script>

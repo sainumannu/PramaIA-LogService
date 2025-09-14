@@ -72,7 +72,12 @@ class PramaIALogger {
     this.apiKey = options.apiKey;
     this.project = options.project;
     this.module = options.module;
-    this.host = (options.host || 'http://localhost:8081').replace(/\/$/, '');
+    // Risolvi host da options, poi da BACKEND_URL o PRAMAIALOG_HOST (+ PRAMAIALOG_PORT), altrimenti fallback
+    let resolvedHost = options.host || process.env.BACKEND_URL || process.env.PRAMAIALOG_HOST || 'http://localhost:8081';
+    if (process.env.PRAMAIALOG_PORT && !/:\d+$/.test(resolvedHost)) {
+      resolvedHost = `${resolvedHost.replace(/\/$/, '')}:${process.env.PRAMAIALOG_PORT}`;
+    }
+    this.host = resolvedHost.replace(/\/$/, '');
     this.bufferSize = options.bufferSize || 100;
     this.autoFlush = options.autoFlush !== false;
     this.flushInterval = options.flushInterval || 5000;

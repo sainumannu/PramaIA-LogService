@@ -9,13 +9,13 @@ import uvicorn
 from fastapi import FastAPI, Depends, HTTPException, status, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
 from api.log_router import router as log_router
 from core.config import get_settings, configure_service_logging
 from core.maintenance import get_maintenance_scheduler
-from web.dashboard_router import dashboard_router
 from web.settings_router import settings_router
+from web.search_router import search_router
 
 # Configurazione del logger di sistema
 logger = configure_service_logging()
@@ -41,8 +41,14 @@ app.add_middleware(
 
 # Inclusione dei router
 app.include_router(log_router, prefix="/api/logs", tags=["logs"])
-app.include_router(dashboard_router, prefix="/dashboard", tags=["dashboard"])
 app.include_router(settings_router, prefix="/api/settings", tags=["settings"])
+app.include_router(search_router, prefix="/dashboard", tags=["search"])
+
+
+@app.get("/dashboard")
+async def dashboard_root():
+    """Compatibilità: reindirizza /dashboard -> /dashboard/ (pagina di ricerca)."""
+    return RedirectResponse(url="/dashboard/")
 
 # Mount static files
 static_dir = os.path.join(os.path.dirname(__file__), "web", "static")
@@ -51,12 +57,13 @@ if os.path.exists(static_dir):
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
-    """Endpoint radice che reindirizza alla documentazione."""
-    return """
+    """Endpoint radice che reindirizza alla pagina di ricerca."""
+    html_content = """
     <!DOCTYPE html>
     <html>
         <head>
             <title>PramaIA LogService</title>
+                    <meta http-equiv="refresh" content="0;url=/dashboard/">
             <style>
                 body { font-family: Arial, sans-serif; margin: 40px; }
                 h1 { color: #333; }
@@ -64,11 +71,12 @@ async def root():
         </head>
         <body>
             <h1>PramaIA LogService</h1>
-            <p>Servizio centralizzato di logging per i componenti PramaIA</p>
-            <p>Visita <a href="/docs">la documentazione</a> per ulteriori informazioni sulle API.</p>
+            <p>Reindirizzamento alla pagina di ricerca...</p>
+            <p>Se non vieni reindirizzato automaticamente, <a href="/dashboard/">clicca qui</a>.</p>
         </body>
     </html>
     """
+    return html_content
 
 @app.get("/health")
 async def health_check():

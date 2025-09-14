@@ -101,8 +101,7 @@
         </div>
         <nav>
             <ul>
-                <li><a href="/dashboard">Dashboard</a></li>
-                <li><a href="/dashboard/search">Ricerca</a></li>
+                <li><a href="/dashboard/">Ricerca</a></li>
                 <!-- <li><a href="/dashboard/stats">Statistiche</a></li> -->
                 <li><a href="/dashboard/logservice" class="active">LogService</a></li>
                 <!-- <li><a href="/dashboard/settings">Impostazioni</a></li> -->
@@ -266,7 +265,7 @@ const logger = new PramaIALogger({
     apiKey: "your_api_key",
     project: LogProject.PDK,
     module: "plugin_name",
-    host: "http://localhost:8081"
+    host: "{{ settings.host if settings.host else 'http://localhost' }}{% if settings.port %}:{{ settings.port }}{% else %}:8081{% endif %}"
 });
 
 // Utilizza il logger
@@ -288,7 +287,7 @@ logger = PramaIALogger(
     api_key="your_api_key",
     project=LogProject.SERVER,
     module="workflow_service",
-    host="http://localhost:8081"
+    host="{{ settings.host if settings.host else 'http://localhost' }}{% if settings.port %}:{{ settings.port }}{% else %}:8081{% endif %}"
 )
 
 # Utilizza il logger
@@ -326,7 +325,7 @@ logger = PramaIALogger(
     api_key="your_api_key",
     project=LogProject.SERVER,
     module="pramaiaserver",
-    host="http://localhost:8081"
+    host="{{ settings.host if settings.host else 'http://localhost' }}{% if settings.port %}:{{ settings.port }}{% else %}:8081{% endif %}"
 )
 
 # Nei tuoi file

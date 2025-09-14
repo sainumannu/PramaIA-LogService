@@ -143,13 +143,27 @@ async def cleanup_logs(
     days_to_keep: int = 30,
     project: Optional[LogProject] = None,
     level: Optional[LogLevel] = None,
-    api_key: str = Depends(get_api_key)
+    api_key: str = Depends(get_api_key),
+    body: Optional[Dict[str, Any]] = Body(None)
 ):
     """
     Pulisce i log più vecchi di un certo numero di giorni.
     
     Richiede un API key valido per l'autenticazione.
     """
+    # Se il client ha inviato un body JSON (es. fetch DELETE con JSON), usalo per sovrascrivere i parametri
+    if body:
+        try:
+            if 'days_to_keep' in body:
+                days_to_keep = int(body.get('days_to_keep', days_to_keep))
+            if 'project' in body and body.get('project'):
+                project = LogProject(body.get('project'))
+            if 'level' in body and body.get('level'):
+                level = LogLevel(body.get('level'))
+        except Exception:
+            # Se il parsing fallisce, mantieni i valori predefiniti e continua
+            pass
+
     deleted_count = log_manager.cleanup_logs(
         days_to_keep=days_to_keep,
         project=project,
@@ -162,7 +176,8 @@ async def cleanup_logs(
 async def reset_logs(
     days: int = 1,
     project: Optional[LogProject] = None,
-    api_key: str = Depends(get_api_key)
+    api_key: str = Depends(get_api_key),
+    body: Optional[Dict[str, Any]] = Body(None)
 ):
     """
     Resetta (elimina) i log più recenti fino al numero di giorni specificato.
@@ -171,6 +186,13 @@ async def reset_logs(
     """
     from datetime import datetime, timedelta
     
+    # Se il client ha inviato il body JSON, usa i valori forniti
+    if body and 'days' in body:
+        try:
+            days = int(body.get('days', days))
+        except Exception:
+            pass
+
     # Calcola la data di cutoff
     cutoff_date = datetime.now() - timedelta(days=days)
     
@@ -184,3 +206,99 @@ async def reset_logs(
         "deleted_count": deleted_count,
         "message": f"Eliminati {deleted_count} log degli ultimi {days} giorni"
     }
+
+
+@router.delete("/cleanup/unarchived", status_code=status.HTTP_200_OK)
+async def cleanup_unarchived(
+    api_key: str = Depends(get_api_key),
+    body: Optional[Dict[str, Any]] = Body(None)
+):
+    """
+    Elimina tutti i log che NON sono stati archiviati (non presenti nella tabella compressed_logs).
+
+    Richiede un'API key valida.
+    """
+    conn = log_manager._get_connection()
+    cursor = conn.cursor()
+
+    # Verifica se la tabella compressed_logs esiste
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='compressed_logs'")
+    if not cursor.fetchone():
+        # Se non esiste, allora non ci sono log archiviati: cancella tutto
+        try:
+            cursor.execute("DELETE FROM logs")
+            deleted_count = cursor.rowcount
+            conn.commit()
+            conn.close()
+            return {"deleted_count": deleted_count, "message": f"Eliminati {deleted_count} log (nessun archivio trovato)"}
+        except Exception as e:
+            conn.rollback()
+            conn.close()
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+    # Se la tabella esiste, elimina i log il cui id non è presente in compressed_logs
+    try:
+        cursor.execute("DELETE FROM logs WHERE id NOT IN (SELECT log_id FROM compressed_logs)")
+        deleted_count = cursor.rowcount
+        conn.commit()
+        conn.close()
+        return {"deleted_count": deleted_count, "message": f"Eliminati {deleted_count} log non archiviati"}
+    except Exception as e:
+        conn.rollback()
+        conn.close()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+
+@router.delete("/cleanup/all", status_code=status.HTTP_200_OK)
+async def cleanup_all(
+    api_key: str = Depends(get_api_key),
+    body: Optional[Dict[str, Any]] = Body(None)
+):
+    """
+    Elimina TUTTI i log e gli archivi associati (rimuove le righe in `logs`, i riferimenti in `compressed_logs` e i file zip su disco).
+
+    Richiede un'API key valida. Operazione distruttiva: eseguire backup prima di chiamarla.
+    """
+    conn = log_manager._get_connection()
+    cursor = conn.cursor()
+
+    try:
+        # Recupera la lista di archive_path presenti (se la tabella esiste)
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='compressed_logs'")
+        archives = []
+        if cursor.fetchone():
+            cursor.execute("SELECT DISTINCT archive_path FROM compressed_logs")
+            archives = [row[0] for row in cursor.fetchall() if row[0]]
+
+        # Inizia transazione
+        # 1) elimina riferimenti da compressed_logs
+        try:
+            cursor.execute("DELETE FROM compressed_logs")
+        except Exception:
+            # Se la tabella non esiste, ignora
+            pass
+
+        # 2) elimina tutti i logs
+        cursor.execute("DELETE FROM logs")
+        deleted_logs = cursor.rowcount
+
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        conn.close()
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+    # Rimuovi i file di archivio dal filesystem (fuori dalla transazione DB)
+    removed_archives = 0
+    for path in archives:
+        try:
+            import os
+            if path and os.path.exists(path):
+                os.remove(path)
+                removed_archives += 1
+        except Exception:
+            # Ignora errori nell'eliminazione dei singoli file ma continua
+            pass
+
+    conn.close()
+    return {"deleted_logs": deleted_logs, "deleted_compressed": len(archives), "removed_archives": removed_archives}

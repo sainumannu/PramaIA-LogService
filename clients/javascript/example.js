@@ -9,11 +9,18 @@ const { PramaIALogger, LogLevel, LogProject } = require('./pramaialog');
  */
 async function simulateWorkflowExecution() {
   // Crea un'istanza del logger
+  // Risolvi host dal .env / variabili d'ambiente se presenti
+  let backend = process.env.BACKEND_URL || process.env.PRAMAIALOG_HOST || 'http://localhost:8081';
+  const port = process.env.PRAMAIALOG_PORT;
+  if (port && !/:\d+$/.test(backend)) {
+    backend = `${backend.replace(/\/$/, '')}:${port}`;
+  }
+
   const logger = new PramaIALogger({
     apiKey: 'pramaiapdk_api_key_123456', // Questa è una delle chiavi predefinite
     project: LogProject.PDK,
     module: 'workflow_editor',
-    host: 'http://localhost:8081' // Assicurati che il servizio sia in esecuzione su questa porta
+    host: backend
   });
   
   // Simula l'avvio di un workflow

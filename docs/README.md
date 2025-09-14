@@ -88,11 +88,12 @@ cd C:\PramaIA\PramaIA-LogService
 python main.py
 ```
 
-Il servizio sarà disponibile all'indirizzo http://localhost:8081.
+Il servizio sarà disponibile all'indirizzo configurato tramite `.env` o variabili d'ambiente.
+Per esempio, impostando `PRAMAIALOG_HOST=http://127.0.0.1` e `PRAMAIALOG_PORT=8081` il servizio sarà raggiungibile su `http://127.0.0.1:8081`.
 
 ### Accesso alla dashboard
 
-La dashboard web è accessibile all'indirizzo http://localhost:8081/dashboard.
+La dashboard web è accessibile all'indirizzo `${BACKEND_URL}/dashboard` se imposti `BACKEND_URL`, oppure `http(s)://{PRAMAIALOG_HOST}:{PRAMAIALOG_PORT}/dashboard`.
 
 ### API RESTful
 
@@ -104,7 +105,7 @@ Il servizio espone le seguenti API REST:
 - `GET /api/logs/stats`: recupera statistiche sui log
 - `DELETE /api/logs/cleanup`: pulisce i log più vecchi di un certo numero di giorni
 
-La documentazione completa delle API è disponibile all'indirizzo http://localhost:8081/docs.
+La documentazione completa delle API è disponibile all'indirizzo `${BACKEND_URL}/docs` o `http(s)://{PRAMAIALOG_HOST}:{PRAMAIALOG_PORT}/docs`.
 
 ## Client
 

@@ -35,7 +35,9 @@ const config = {
   // Altre configurazioni...
   
   logging: {
-    serviceHost: 'http://localhost:8081',
+    // Si raccomanda di leggere il backend dal file .env o dalle variabili d'ambiente
+    // Esempio: BACKEND_URL=http://127.0.0.1:8081 oppure PRAMAIALOG_HOST=http://127.0.0.1 + PRAMAIALOG_PORT=8081
+    serviceHost: process.env.BACKEND_URL || process.env.PRAMAIALOG_HOST || 'http://localhost:8081',
     apiKey: 'pramaiapdk_api_key_123456',
     level: process.env.PDK_LOG_LEVEL || 'info'
   }
