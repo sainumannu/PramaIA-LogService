@@ -132,17 +132,17 @@ Esempio di utilizzo in un gestore di plugin:
 const { getLogger } = require('../utils/logger');
 
 // Crea un logger specifico per questo modulo
-const logger = getLogger('pdf-monitor-plugin');
+const logger = getLogger('document-monitor-plugin');
 
-class PDFMonitorPlugin {
+class DocumentMonitorPlugin {
   constructor() {
-    logger.info('Inizializzazione plugin PDF Monitor');
+    logger.info('Inizializzazione plugin Document Monitor');
   }
   
   async processDocument(document) {
     try {
       logger.info(
-        'Elaborazione documento PDF',
+        'Elaborazione documento',
         { documentId: document.id, documentName: document.name }
       );
       
@@ -151,7 +151,7 @@ class PDFMonitorPlugin {
       return result;
     } catch (error) {
       logger.error(
-        'Errore durante l\'elaborazione del documento PDF',
+        'Errore durante l\'elaborazione del documento',
         {
           errorType: error.name,
           errorMessage: error.message,
