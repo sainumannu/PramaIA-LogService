@@ -35,6 +35,24 @@
             overflow-x: auto;
             max-height: 300px;
         }
+        
+        .lifecycle-details {
+            position: relative;
+            padding: 10px;
+            background-color: rgba(142, 68, 173, 0.05);
+            border-radius: 4px;
+            border-left: 4px solid #8e44ad;
+        }
+        
+        .lifecycle-badge {
+            display: inline-block;
+            background-color: #8e44ad;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            margin-bottom: 10px;
+        }
 
         .actions {
             margin-top: 10px;
@@ -58,6 +76,36 @@
         .btn-danger:disabled {
             background-color: #999;
             cursor: not-allowed;
+        }
+        
+        /* Stili per le informazioni di documento nei dettagli */
+        .document-info {
+            margin-bottom: 15px;
+            padding: 10px;
+            background-color: #e8f4fd;
+            border-radius: 4px;
+            border-left: 4px solid #2196F3;
+        }
+        
+        .document-info .btn {
+            background-color: #2196F3;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 3px;
+            text-decoration: none;
+            font-size: 12px;
+            margin-left: 10px;
+        }
+        
+        .document-info .btn:hover {
+            background-color: #0b7dda;
+        }
+        
+        .document-info code {
+            font-family: monospace;
+            background: #f0f0f0;
+            padding: 2px 4px;
+            border-radius: 3px;
         }
     </style>
 </head>
@@ -106,6 +154,7 @@
                             <option value="warning" {% if level == 'warning' %}selected{% endif %}>Warning</option>
                             <option value="error" {% if level == 'error' %}selected{% endif %}>Error</option>
                             <option value="critical" {% if level == 'critical' %}selected{% endif %}>Critical</option>
+                            <option value="lifecycle" {% if level == 'lifecycle' %}selected{% endif %}>Lifecycle</option>
                         </select>
                     </div>
                     
@@ -113,6 +162,28 @@
                         <label for="module">Modulo</label>
                         <input type="text" id="module" name="module" value="{{ module or '' }}" placeholder="Nome del modulo">
                     </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="document_id">ID Documento</label>
+                        <input type="text" id="document_id" name="document_id" value="{{ document_id or '' }}" placeholder="Filtra per ID documento">
+                        <div class="field-hint" style="font-size: 12px; color: #666; margin-top: 4px;">
+                            Cerca nei dettagli un document_id specifico
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="file_name">Nome File o Percorso</label>
+                        <input type="text" id="file_name" name="file_name" value="{{ file_name or '' }}" placeholder="Filtra per nome file o parte del percorso">
+                        <div class="field-hint" style="font-size: 12px; color: #666; margin-top: 4px;">
+                            Cerca file_name, file_path o qualsiasi stringa che contenga il testo inserito
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="search-tip" style="background-color: #fff3cd; padding: 10px; margin: 10px 0; border-radius: 4px; border-left: 4px solid #ffc107; font-size: 13px;">
+                    <strong>Suggerimento:</strong> Per visualizzare tutti gli eventi di lifecycle di un documento, seleziona "Lifecycle" nel campo "Livello" e cerca con il nome del file o il percorso. Se conosci l'ID del documento, puoi inserirlo direttamente nel campo "ID Documento".
                 </div>
                 
                 <div class="form-row">
@@ -172,11 +243,11 @@
             
             <div class="pagination">
                 {% if offset > 0 %}
-                <a href="?project={{ project or '' }}&level={{ level or '' }}&module={{ module or '' }}&start_date={{ start_date or '' }}&end_date={{ end_date or '' }}&limit={{ limit }}&offset={{ offset - limit if offset - limit >= 0 else 0 }}" class="btn">Precedente</a>
+                <a href="?project={{ project or '' }}&level={{ level or '' }}&module={{ module or '' }}&document_id={{ document_id or '' }}&file_name={{ file_name or '' }}&start_date={{ start_date or '' }}&end_date={{ end_date or '' }}&limit={{ limit }}&offset={{ offset - limit if offset - limit >= 0 else 0 }}" class="btn">Precedente</a>
                 {% endif %}
                 
                 {% if logs|length >= limit %}
-                <a href="?project={{ project or '' }}&level={{ level or '' }}&module={{ module or '' }}&start_date={{ start_date or '' }}&end_date={{ end_date or '' }}&limit={{ limit }}&offset={{ offset + limit }}" class="btn">Successivo</a>
+                <a href="?project={{ project or '' }}&level={{ level or '' }}&module={{ module or '' }}&document_id={{ document_id or '' }}&file_name={{ file_name or '' }}&start_date={{ start_date or '' }}&end_date={{ end_date or '' }}&limit={{ limit }}&offset={{ offset + limit }}" class="btn">Successivo</a>
                 {% endif %}
             </div>
         </section>
@@ -222,6 +293,101 @@
                             return '<em>Oggetto vuoto</em>';
                         }
                         
+                        // Estrai informazioni sul documento se presenti
+                        let documentId = null;
+                        let fileName = null;
+                        let filePath = null;
+                        let fileHash = null;
+                        
+                        // Cerca nelle varie possibili posizioni
+                        if (obj.document_id) {
+                            documentId = obj.document_id;
+                        } else if (obj.details && obj.details.document_id) {
+                            documentId = obj.details.document_id;
+                        }
+                        
+                        if (obj.file_name) {
+                            fileName = obj.file_name;
+                        } else if (obj.details && obj.details.file_name) {
+                            fileName = obj.details.file_name;
+                        }
+                        
+                        if (obj.file_path) {
+                            filePath = obj.file_path;
+                        } else if (obj.details && obj.details.file_path) {
+                            filePath = obj.details.file_path;
+                        }
+                        
+                        // Cerca file_hash che può essere utile per tracciare lifecycle
+                        if (obj.file_hash) {
+                            fileHash = obj.file_hash;
+                        } else if (obj.details && obj.details.file_hash) {
+                            fileHash = obj.details.file_hash;
+                        } else if (obj.correlation_id) {
+                            fileHash = obj.correlation_id;
+                        } else if (obj.details && obj.details.correlation_id) {
+                            fileHash = obj.details.correlation_id;
+                        }
+                        
+                        // Se file_name non è ancora stato estratto ma abbiamo un file_path, estraiamo il nome
+                        if (!fileName && filePath) {
+                            // Estrai il nome file dal percorso (ultima parte dopo / o \)
+                            const pathParts = filePath.split(/[\/\\]/);
+                            if (pathParts.length > 0) {
+                                fileName = pathParts[pathParts.length - 1];
+                            }
+                        }
+                        
+                        // Crea bottoni per filtrare facilmente
+                        let documentInfoHTML = '';
+                        
+                        if (documentId || fileName || filePath || fileHash) {
+                            documentInfoHTML = '<div class="document-info" style="margin-bottom: 15px; padding: 10px; background-color: #e8f4fd; border-radius: 4px; border-left: 4px solid #2196F3;">';
+                            
+                            if (documentId) {
+                                documentInfoHTML += `
+                                    <div style="margin-bottom: 8px;">
+                                        <strong>Document ID:</strong> 
+                                        <span style="font-family: monospace; background: #f0f0f0; padding: 2px 4px; border-radius: 3px;">${documentId}</span>
+                                        <a href="?document_id=${documentId}" class="btn small" style="margin-left: 10px; background-color: #2196F3; color: white; padding: 2px 8px;">Filtra per questo documento</a>
+                                        <a href="?level=lifecycle&document_id=${documentId}" class="btn small" style="margin-left: 5px; background-color: #8e44ad; color: white; padding: 2px 8px;">Eventi lifecycle</a>
+                                    </div>`;
+                            }
+                            
+                            if (fileName) {
+                                documentInfoHTML += `
+                                    <div style="margin-bottom: ${filePath ? '8px' : '0'};">
+                                        <strong>Nome file:</strong> 
+                                        <span style="font-family: monospace; background: #f0f0f0; padding: 2px 4px; border-radius: 3px;">${fileName}</span>
+                                        <a href="?file_name=${encodeURIComponent(fileName)}" class="btn small" style="margin-left: 10px; background-color: #2196F3; color: white; padding: 2px 8px;">Filtra per questo file</a>
+                                        <a href="?level=lifecycle&file_name=${encodeURIComponent(fileName)}" class="btn small" style="margin-left: 5px; background-color: #8e44ad; color: white; padding: 2px 8px;">Eventi lifecycle</a>
+                                    </div>`;
+                            }
+                            
+                            if (filePath) {
+                                documentInfoHTML += `
+                                    <div style="margin-bottom: ${fileHash ? '8px' : '0'};">
+                                        <strong>Percorso file:</strong> 
+                                        <span style="font-family: monospace; background: #f0f0f0; padding: 2px 4px; border-radius: 3px; word-break: break-all;">${filePath}</span>
+                                        <a href="?file_name=${encodeURIComponent(filePath)}" class="btn small" style="margin-left: 10px; background-color: #2196F3; color: white; padding: 2px 8px;">Filtra per questo percorso</a>
+                                    </div>`;
+                            }
+                            
+                            if (fileHash) {
+                                documentInfoHTML += `
+                                    <div>
+                                        <strong>File hash/ID correlazione:</strong> 
+                                        <span style="font-family: monospace; background: #f0f0f0; padding: 2px 4px; border-radius: 3px;">${fileHash}</span>
+                                        <a href="?file_name=${encodeURIComponent(fileHash)}" class="btn small" style="margin-left: 10px; background-color: #2196F3; color: white; padding: 2px 8px;">Filtra per questo hash</a>
+                                    </div>`;
+                            }
+                            
+                            documentInfoHTML += '</div>';
+                        }
+                        
+                        // Verifica se è un log di lifecycle
+                        const isLifecycle = obj.log_type === 'lifecycle' || obj.lifecycle_event;
+                        
                         // Controlla se ci sono campi "undefined"
                         let hasUndefinedValues = false;
                         for (const key in obj) {
@@ -231,17 +397,29 @@
                             }
                         }
                         
+                        let jsonDisplayHTML = '';
+                        
                         if (hasUndefinedValues) {
                             // Se ci sono valori undefined, mostra un messaggio di avviso
-                            return `<div class="warning">
+                            jsonDisplayHTML = `<div class="warning">
                                 <p>Attenzione: questo oggetto contiene valori non definiti.</p>
                                 <pre>${JSON.stringify(obj, (key, value) => 
                                     value === undefined ? "[valore non definito]" : value, 2)}</pre>
                             </div>`;
+                        } else if (isLifecycle) {
+                            // Se è un log di lifecycle, visualizza con stile speciale
+                            const eventType = obj.lifecycle_event || "sconosciuto";
+                            jsonDisplayHTML = `<div class="lifecycle-details">
+                                <div class="lifecycle-badge">${eventType}</div>
+                                <pre>${JSON.stringify(obj, null, 2)}</pre>
+                            </div>`;
                         } else {
                             // Altrimenti, mostra normalmente
-                            return `<pre>${JSON.stringify(obj, null, 2)}</pre>`;
+                            jsonDisplayHTML = `<pre>${JSON.stringify(obj, null, 2)}</pre>`;
                         }
+                        
+                        // Combina le informazioni del documento con la visualizzazione JSON
+                        return documentInfoHTML + jsonDisplayHTML;
                     }
                     
                     container.innerHTML = `

@@ -49,6 +49,7 @@ class LogLevel(str, Enum):
     WARNING = "warning"
     ERROR = "error"
     CRITICAL = "critical"
+    LIFECYCLE = "lifecycle"  # Livello speciale per tracciare il ciclo di vita dei documenti
 
 class LogProject(str, Enum):
     """Progetti PramaIA supportati."""
@@ -166,6 +167,43 @@ class PramaIALogger:
     ) -> str:
         """Invia un log di livello CRITICAL."""
         return self.log(LogLevel.CRITICAL, message, details, context)
+        
+    def lifecycle(
+        self,
+        message: str,
+        details: Optional[Dict[str, Any]] = None,
+        context: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """
+        Invia un log di livello LIFECYCLE.
+        
+        Questo livello è specifico per tracciare gli eventi del ciclo di vita dei documenti
+        come creazione, modifica, cancellazione, upload, ecc.
+        
+        Args:
+            message: Il messaggio da registrare
+            details: Dizionario con dettagli aggiuntivi
+            context: Contesto dell'evento
+            
+        Returns:
+            ID del log creato
+        """
+        # Aggiungi automaticamente un marker al messaggio
+        marked_message = f"🔄 [LIFECYCLE] {message}"
+        
+        # Aggiungi il tag log_type per garantire la compatibilità con le versioni precedenti
+        lifecycle_details = details.copy() if details else {}
+        lifecycle_details["log_type"] = "lifecycle"
+            
+        # Se non c'è già un lifecycle_event, aggiungiamolo
+        if "lifecycle_event" not in lifecycle_details:
+            # Estrai un nome di evento dal messaggio o usa un valore predefinito
+            import re
+            event_match = re.search(r'\b([A-Z_]+)\b', message)
+            lifecycle_details["lifecycle_event"] = event_match.group(1) if event_match else "GENERIC_EVENT"
+        
+        # Usa il livello LIFECYCLE direttamente
+        return self.log(LogLevel.LIFECYCLE, marked_message, lifecycle_details, context)
     
     def log(
         self,
@@ -187,11 +225,25 @@ class PramaIALogger:
             ID del log creato
         """
         log_id = str(uuid.uuid4())
+        
+        # Gestione speciale per il livello LIFECYCLE
+        # Per retrocompatibilità, i log lifecycle vengono inviati come INFO
+        # ma con tag speciale nei dettagli
+        actual_level = level
+        if level == LogLevel.LIFECYCLE:
+            actual_level = LogLevel.INFO
+            
+            # Assicurati che i dettagli contengano il tag lifecycle
+            if not details:
+                details = {}
+            if isinstance(details, dict) and "log_type" not in details:
+                details["log_type"] = "lifecycle"
+        
         log_entry = {
             "id": log_id,
             "timestamp": datetime.now().isoformat(),
             "project": self.project,
-            "level": level,
+            "level": actual_level,
             "module": self.module,
             "message": message,
             "details": details,

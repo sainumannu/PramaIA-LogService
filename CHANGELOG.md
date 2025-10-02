@@ -2,6 +2,18 @@
 
 Questo file contiene tutte le modifiche significative apportate al progetto PramaIA-LogService.
 
+## [1.3.0] - 2025-09-05
+
+### Aggiunto
+- Migliorata la rilevazione dei log lifecycle con un algoritmo più flessibile
+- Nuovo script di test `test_lifecycle_log_detection.py` per verificare la corretta rilevazione
+- Documentazione aggiuntiva: `LIFECYCLE_LOG_DETECTION_UPDATE.md`
+
+### Modificato
+- Aggiornato `search_router.py` per cercare "lifecycle" in qualsiasi parte dei dettagli del log
+- Migliorato l'algoritmo in `log_manager.py` per rilevare più efficacemente i log lifecycle
+- Espansa la documentazione con esempi di come i log lifecycle vengono rilevati
+
 ## [1.2.0] - 2025-08-19
 
 ### Aggiunto

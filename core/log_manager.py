@@ -194,6 +194,8 @@ class LogManager:
         project: Optional[LogProject] = None,
         level: Optional[LogLevel] = None,
         module: Optional[str] = None,
+        document_id: Optional[str] = None,
+        file_name: Optional[str] = None,
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None,
         limit: int = 100,
@@ -206,6 +208,8 @@ class LogManager:
             project: Filtra per progetto
             level: Filtra per livello di log
             module: Filtra per modulo
+            document_id: Filtra per ID del documento
+            file_name: Filtra per nome del file
             start_date: Data di inizio per il filtro temporale
             end_date: Data di fine per il filtro temporale
             limit: Numero massimo di log da restituire
@@ -225,13 +229,46 @@ class LogManager:
             query += " AND project = ?"
             params.append(project)
         
+        # Gestione speciale per il livello lifecycle
+        is_lifecycle_search = level == "lifecycle"
         if level:
-            query += " AND level = ?"
-            params.append(level)
+            if is_lifecycle_search:
+                # Per lifecycle, cerca nei log INFO ma filtra ulteriormente dopo
+                query += " AND level = ?"
+                params.append("info")
+            else:
+                # Per gli altri livelli, cerca direttamente
+                query += " AND level = ?"
+                params.append(level)
         
         if module:
             query += " AND module = ?"
             params.append(module)
+            
+        # Filtri per documento e file - Migliorata per cercare in più campi
+        if document_id:
+            # Cerca nei dettagli o contesto JSON contenenti document_id
+            query += " AND (details LIKE ? OR context LIKE ?)"
+            doc_search = f"%{document_id}%"
+            params.append(doc_search)
+            params.append(doc_search)
+            
+        if file_name:
+            # Cerca nei dettagli o contesto JSON contenenti file_name
+            # Cerca sia nei campi file_name che file_path o semplicemente come parte di qualsiasi stringa
+            query += " AND (details LIKE ? OR details LIKE ? OR details LIKE ? OR context LIKE ? OR context LIKE ? OR context LIKE ?)"
+            
+            # Ricerca per nome file in vari formati
+            file_search1 = f"%\"file_name\":%{file_name}%"  # Nome file in campo file_name
+            file_search2 = f"%\"file_path\":%{file_name}%"  # Nome file come parte del percorso
+            file_search3 = f"%{file_name}%"                 # Nome file in qualsiasi punto
+            
+            params.append(file_search1)
+            params.append(file_search2)
+            params.append(file_search3)
+            params.append(file_search1)
+            params.append(file_search2)
+            params.append(file_search3)
         
         if start_date:
             query += " AND timestamp >= ?"
@@ -254,13 +291,22 @@ class LogManager:
         
         # Converti i risultati in dizionari
         results = []
+        
+        # Variabili per post-filtraggio
+        apply_document_filter = document_id is not None
+        apply_file_filter = file_name is not None
+        
         for row in rows:
             log_dict = dict(row)
             
             # Converti JSON in dizionari con gestione degli errori
+            details_obj = None
+            context_obj = None
+            
             if log_dict["details"]:
                 try:
-                    log_dict["details"] = json.loads(log_dict["details"])
+                    details_obj = json.loads(log_dict["details"])
+                    log_dict["details"] = details_obj
                 except Exception as e:
                     logger.error(f"Errore durante il parsing JSON dei dettagli per il log {log_dict['id']}: {str(e)}")
                     # Invece di avere valori undefined, manteniamo almeno i dati originali
@@ -268,12 +314,50 @@ class LogManager:
             
             if log_dict["context"]:
                 try:
-                    log_dict["context"] = json.loads(log_dict["context"])
+                    context_obj = json.loads(log_dict["context"])
+                    log_dict["context"] = context_obj
                 except Exception as e:
                     logger.error(f"Errore durante il parsing JSON del contesto per il log {log_dict['id']}: {str(e)}")
                     log_dict["context"] = {"error": "Formato JSON non valido", "raw_data": log_dict["context"]}
             
-            results.append(log_dict)
+            # Disabilitiamo il post-filtraggio avanzato che potrebbe essere troppo restrittivo
+            # e che è già stato sostituito dalla ricerca SQL semplificata
+            include_log = True
+            
+            if include_log:
+                # Gestione speciale per il livello lifecycle
+                if is_lifecycle_search:
+                    # Verifica se il log è relativo al ciclo di vita
+                    is_lifecycle = False
+                    
+                    # Verifica nei dettagli
+                    if isinstance(log_dict["details"], dict):
+                        # Verifica esplicitamente se contiene log_type=lifecycle
+                        if log_dict["details"].get("log_type") == "lifecycle":
+                            is_lifecycle = True
+                        # Oppure se contiene lifecycle_event
+                        elif log_dict["details"].get("lifecycle_event") is not None:
+                            is_lifecycle = True
+                        # Oppure se contiene la stringa 'lifecycle' in qualsiasi punto dei dettagli
+                        else:
+                            # Converti i dettagli in stringa JSON e cerca la parola 'lifecycle'
+                            details_str = str(log_dict["details"]).lower()
+                            if 'lifecycle' in details_str:
+                                is_lifecycle = True
+                    
+                    # Verifica nel messaggio
+                    if not is_lifecycle and log_dict["message"]:
+                        if ("[LIFECYCLE]" in log_dict["message"] or 
+                            "LIFECYCLE_EVENT:" in log_dict["message"] or 
+                            "lifecycle" in log_dict["message"].lower()):
+                            is_lifecycle = True
+                    
+                    if is_lifecycle:
+                        # Cambia il livello visualizzato a "lifecycle"
+                        log_dict["level"] = "lifecycle"
+                        results.append(log_dict)
+                else:
+                    results.append(log_dict)
         
         conn.close()
         return results

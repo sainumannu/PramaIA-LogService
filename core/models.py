@@ -15,6 +15,7 @@ class LogLevel(str, Enum):
     WARNING = "warning"
     ERROR = "error"
     CRITICAL = "critical"
+    LIFECYCLE = "lifecycle"  # Livello speciale per tracciare il ciclo di vita dei documenti
 
 class LogProject(str, Enum):
     """Progetti PramaIA supportati."""
