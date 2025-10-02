@@ -1,0 +1,24 @@
+# File compilati di Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# File di database SQLite
+logs/log_database.db
+
+# File di ambiente
+.env
+.venv
+env/
+venv/
+ENV/
+
+# File di sistema operativo
+.DS_Store
+Thumbs.db
+
+# File di IDE
+.idea/
+.vscode/
+*.swp
+*.swo
