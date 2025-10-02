@@ -12,10 +12,12 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
 from api.log_router import router as log_router
+from api.document_lifecycle_router import router as lifecycle_router
 from core.config import get_settings, configure_service_logging
 from core.maintenance import get_maintenance_scheduler
 from web.settings_router import settings_router
 from web.search_router import search_router
+from web.lifecycle_router import router as web_lifecycle_router
 
 # Configurazione del logger di sistema
 logger = configure_service_logging()
@@ -41,8 +43,10 @@ app.add_middleware(
 
 # Inclusione dei router
 app.include_router(log_router, prefix="/api/logs", tags=["logs"])
+app.include_router(lifecycle_router, prefix="/api/lifecycle", tags=["lifecycle"])
 app.include_router(settings_router, prefix="/api/settings", tags=["settings"])
 app.include_router(search_router, prefix="/dashboard", tags=["search"])
+app.include_router(web_lifecycle_router, prefix="/dashboard", tags=["lifecycle"])
 
 
 @app.get("/dashboard")

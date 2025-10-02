@@ -17,6 +17,7 @@
     --success-color: #4caf50;
     --info-color: #2196f3;
     --debug-color: #9e9e9e;
+    --lifecycle-color: #8e44ad;
     --border-radius: 4px;
     --box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
@@ -177,6 +178,11 @@ th {
 .log-level-critical {
     background-color: rgba(244, 67, 54, 0.1);
     border-left: 4px solid var(--error-color);
+}
+
+.log-level-lifecycle {
+    border-left: 4px solid var(--lifecycle-color);
+    background-color: rgba(142, 68, 173, 0.05);
 }
 
 /* Form */
