@@ -13,6 +13,7 @@ PramaIA-LogService è un sistema centralizzato di logging progettato specificame
 - **Autenticazione sicura**: sistema di autenticazione basato su API key
 - **Archivio persistente**: memorizzazione dei log in database SQLite
 - **Gestione della rotazione**: pulizia automatica dei log più vecchi
+- **Tracciamento documenti**: monitoraggio completo del ciclo di vita dei documenti
 
 ## Integrazione con l'ecosistema PramaIA
 
@@ -104,6 +105,9 @@ Il servizio espone le seguenti API REST:
 - `GET /api/logs`: recupera le voci di log in base ai filtri specificati
 - `GET /api/logs/stats`: recupera statistiche sui log
 - `DELETE /api/logs/cleanup`: pulisce i log più vecchi di un certo numero di giorni
+- `GET /api/lifecycle/document/{document_id}`: recupera il ciclo di vita di un documento specifico
+- `GET /api/lifecycle/file/{file_name}`: recupera il ciclo di vita di un file specifico
+- `GET /api/lifecycle/hash/{file_hash}`: recupera il ciclo di vita tramite hash del file
 
 La documentazione completa delle API è disponibile all'indirizzo `${BACKEND_URL}/docs` o `http(s)://{PRAMAIALOG_HOST}:{PRAMAIALOG_PORT}/docs`.
 
@@ -131,6 +135,17 @@ logger.error(
     "Errore durante il caricamento del workflow", 
     details={"workflow_id": "123", "error": str(e)},
     context={"user_id": "admin"}
+)
+
+# Log del ciclo di vita dei documenti
+logger.lifecycle(
+    "Documento PDF importato", 
+    details={
+        "document_id": "doc123",
+        "file_name": "documento.pdf",
+        "file_hash": "a1b2c3d4e5f6...",
+        "lifecycle_event": "IMPORT"
+    }
 )
 
 # Assicurati che tutti i log vengano inviati prima di terminare
@@ -161,6 +176,18 @@ logger.error(
   { userId: 'admin' }
 );
 
+// Log del ciclo di vita dei documenti
+logger.lifecycle(
+  'Documento elaborato dal workflow', 
+  { 
+    document_id: 'doc123', 
+    file_name: 'documento.pdf',
+    file_hash: 'a1b2c3d4e5f6...',
+    lifecycle_event: 'PROCESSED'
+  },
+  { workflow_id: 'workflow123' }
+);
+
 // Assicurati che tutti i log vengano inviati prima di terminare
 await logger.flush();
 ```
@@ -174,11 +201,14 @@ Il servizio supporta i seguenti livelli di log, in ordine crescente di gravità:
 - **WARNING**: avvisi che indicano potenziali problemi
 - **ERROR**: errori che impediscono il completamento di un'operazione
 - **CRITICAL**: errori critici che potrebbero causare il malfunzionamento del sistema
+- **LIFECYCLE**: speciale livello per tracciare il ciclo di vita dei documenti (importazione, elaborazione, archiviazione, ecc.)
 
 ## Best practices
 
 - Utilizzare il livello di log appropriato per ciascun messaggio
+- Utilizzare il livello LIFECYCLE per tracciare specificamente eventi relativi al ciclo di vita dei documenti
 - Includere dettagli rilevanti nei log (ma evitare dati sensibili)
 - Aggiungere il contesto appropriato per facilitare il debugging
+- Per i log LIFECYCLE, includere sempre file_hash quando disponibile per consentire il tracciamento completo
 - Utilizzare il client in modalità batch per migliorare le performance
 - Consultare regolarmente la dashboard per monitorare lo stato del sistema

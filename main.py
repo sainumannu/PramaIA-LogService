@@ -15,6 +15,8 @@ from api.log_router import router as log_router
 from api.document_lifecycle_router import router as lifecycle_router
 from core.config import get_settings, configure_service_logging
 from core.maintenance import get_maintenance_scheduler
+from core.middleware import setup_middleware
+from core.system_events import register_lifecycle_event
 from web.settings_router import settings_router
 from web.search_router import search_router
 from web.lifecycle_router import router as web_lifecycle_router
@@ -39,6 +41,21 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+# Configura il middleware di logging
+setup_middleware(app)
+
+# Registra un evento di avvio
+register_lifecycle_event(
+    "LogService avviato",
+    details={
+        "event_type": "service_start",
+        "version": app.version
+    },
+    context={
+        "component": "logservice_main"
+    }
 )
 
 # Inclusione dei router
@@ -119,7 +136,29 @@ async def global_exception_handler(request: Request, exc: Exception):
     """
     Gestione globale delle eccezioni.
     """
+    # Log standard per tracciare l'errore interno
     logger.error(f"Errore non gestito: {str(exc)}", exc_info=True)
+    
+    # Registra un evento LIFECYCLE per tracciare gli errori di sistema
+    try:
+        register_lifecycle_event(
+            "Errore di sistema rilevato",
+            details={
+                "error_type": exc.__class__.__name__,
+                "error_message": str(exc),
+                "endpoint": str(request.url),
+                "method": request.method,
+                "event_type": "system_error"
+            },
+            context={
+                "component": "exception_handler",
+                "system": "LogService"
+            }
+        )
+    except Exception as e:
+        # In caso di errore durante la registrazione del log, usa il logger standard
+        logger.error(f"Impossibile registrare l'evento LIFECYCLE: {str(e)}")
+    
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={"detail": "Si è verificato un errore interno."}

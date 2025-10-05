@@ -301,6 +301,7 @@ async def dashboard_logservice(
                     last_used = last_used_data.get(project, "Mai utilizzata")
                     
                     api_keys.append({
+                        "id": key_name,  # Aggiungiamo l'ID della chiave (il nome nel dizionario)
                         "name": f"{project} API Key",
                         "key_masked": key_masked,
                         "project": project,
@@ -314,6 +315,7 @@ async def dashboard_logservice(
                     
                     # Aggiungi una voce di errore per questa chiave
                     api_keys.append({
+                        "id": key_name,  # Aggiungiamo l'ID della chiave (il nome nel dizionario)
                         "name": f"Errore nella chiave {key_name}",
                         "key_masked": "ERRORE",
                         "project": key_name,
@@ -327,6 +329,7 @@ async def dashboard_logservice(
             
             # In caso di errore, mostra un messaggio
             api_keys = [{
+                "id": "error",  # Aggiungiamo un ID anche per il messaggio di errore
                 "name": f"Errore nel caricamento delle chiavi API: {str(e)}",
                 "key_masked": "N/A",
                 "project": "N/A",
@@ -336,6 +339,7 @@ async def dashboard_logservice(
     else:
         # Se il file non esiste, mostra un messaggio
         api_keys = [{
+            "id": "no_keys",  # Aggiungiamo un ID anche per il messaggio di nessuna chiave
             "name": "Nessuna chiave API configurata",
             "key_masked": "N/A", 
             "project": "N/A",

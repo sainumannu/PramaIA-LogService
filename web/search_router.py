@@ -46,12 +46,21 @@ async def search_logs(
     Permette di filtrare i log in base a diversi criteri.
     """
     # Converti parametri in tipi appropriati
-    project_enum = LogProject(project) if project else None
+    # Per project, accetta sia la stringa diretta che il valore Enum
+    project_param = project
+    if project:
+        try:
+            # Verifica se il valore è un membro valido dell'enum
+            project_param = LogProject(project)
+        except ValueError:
+            # Se non è un valore enum valido, lascialo come stringa
+            project_param = project
     
-    # Gestione speciale per i log di tipo "lifecycle"
-    is_lifecycle_search = level == "lifecycle"
-    # Se la ricerca è per lifecycle, usiamo il livello INFO
-    level_enum = LogLevel("info") if is_lifecycle_search else (LogLevel(level) if level else None)
+    # Per il livello, accetta sia la stringa diretta che il valore Enum
+    level_param = level
+    if level:
+        # Non convertire il livello in Enum, passa la stringa direttamente
+        level_param = level
     
     start_datetime = None
     if start_date:
@@ -69,8 +78,8 @@ async def search_logs(
     
     # Ottieni log filtrati
     logs = log_manager.get_logs(
-        project=project_enum,
-        level=level_enum,
+        project=project_param,
+        level=level_param,
         module=module,
         document_id=document_id,
         file_name=file_name,
@@ -82,68 +91,20 @@ async def search_logs(
         offset=offset
     )
     
-    # Se non ci sono risultati e sono stati applicati filtri, prova senza filtri
-    if not logs and (project or level or module or document_id or file_name or start_date or end_date):
-        # Registra un messaggio di debug
-        import logging
-        logging.getLogger("LogService").debug(
-            f"Nessun risultato con filtri: project={project}, level={level}, "
-            f"module={module}, document_id={document_id}, file_name={file_name}. "
-            f"Provando senza filtri."
-        )
-        # Prova a ottenere almeno alcuni log senza filtri ma mantenendo l'ordinamento
-        logs = log_manager.get_logs(
-            sort_by=sort_by, 
-            sort_order=sort_order, 
-            limit=limit, 
-            offset=offset
-        )
+    # Se i filtri non restituiscono risultati, mostra lista vuota (comportamento corretto)
+    # Non fare fallback a tutti i log - se un utente filtra e non trova nulla, deve vedere lista vuota
     
-    # Se la ricerca è per lifecycle, filtriamo ulteriormente i risultati
-    if is_lifecycle_search:
-        # Filtra i log che hanno il tag "lifecycle" nei dettagli o contengono lifecycle_event
-        filtered_logs = []
-        for log in logs:
-            # Verifica se il log è relativo al ciclo di vita del documento
-            is_lifecycle = False
-            
-            # Verifica se details è un dizionario
-            if isinstance(log["details"], dict):
-                # Verifica se contiene log_type=lifecycle
-                if log["details"].get("log_type") == "lifecycle":
-                    is_lifecycle = True
-                # Oppure se contiene lifecycle_event
-                elif log["details"].get("lifecycle_event") is not None:
-                    is_lifecycle = True
-                # Oppure se contiene lifecycle_category
-                elif log["details"].get("lifecycle_category") == "document_lifecycle":
-                    is_lifecycle = True
-                # Oppure se contiene la stringa 'lifecycle' in qualsiasi punto dei dettagli
-                else:
-                    # Converti i dettagli in stringa JSON e cerca la parola 'lifecycle'
-                    details_str = str(log["details"]).lower()
-                    if 'lifecycle' in details_str:
-                        is_lifecycle = True
-            
-            # Verifica nel messaggio se contiene [LIFECYCLE] o LIFECYCLE_EVENT o lifecycle
-            if not is_lifecycle and log["message"]:
-                if ("[LIFECYCLE]" in log["message"] or 
-                    "LIFECYCLE_EVENT:" in log["message"] or
-                    "lifecycle" in log["message"].lower()):
-                    is_lifecycle = True
-            
-            if is_lifecycle:
-                # Cambia il livello visualizzato a "lifecycle"
-                log["level"] = "lifecycle"
-                filtered_logs.append(log)
-        
-        logs = filtered_logs
-        
-        # Ordinamento speciale per eventi lifecycle per mostrare la sequenza temporale
-        # Normalmente i log più recenti sono in cima, ma per lifecycle spesso è utile vedere la sequenza completa
-        if file_name and not document_id:
-            # Se c'è un filtro per nome file ma non per document_id, ordina cronologicamente (dal più vecchio)
-            logs = sorted(logs, key=lambda x: x["timestamp"])
+    # Identificare se la ricerca è per lifecycle o per un altro livello
+    is_lifecycle_search = level == "lifecycle" if level else False
+    
+    # Nota: La logica di filtro è ora gestita completamente in log_manager.py
+    # Non è più necessario post-processare qui dato che il backend ora gestisce correttamente
+    # la separazione tra log lifecycle e altri livelli
+    
+    # Ordinamento speciale per eventi lifecycle per mostrare la sequenza temporale
+    if is_lifecycle_search and file_name and not document_id:
+        # Se c'è un filtro per nome file ma non per document_id, ordina cronologicamente (dal più vecchio)
+        logs = sorted(logs, key=lambda x: x["timestamp"])
     
     # Calcola pagination
     total_logs = len(logs)  # Questo è una semplificazione, in realtà dovremmo contare tutti i log che corrispondono al filtro
@@ -302,6 +263,7 @@ async def logservice_page(
                     last_used = last_used_data.get(project, "Mai utilizzata")
                     
                     api_keys.append({
+                        "id": key_name,  # Aggiungiamo l'ID della chiave (il nome nel dizionario)
                         "name": f"{project} API Key",
                         "key_masked": key_masked,
                         "project": project,
@@ -315,6 +277,7 @@ async def logservice_page(
                     
                     # Aggiungi una voce di errore per questa chiave
                     api_keys.append({
+                        "id": key_name,  # Aggiungiamo l'ID della chiave (il nome nel dizionario)
                         "name": f"Errore nella chiave {key_name}",
                         "key_masked": "ERRORE",
                         "project": key_name,
@@ -328,6 +291,7 @@ async def logservice_page(
             
             # In caso di errore, mostra un messaggio
             api_keys = [{
+                "id": "error",  # Aggiungiamo un ID anche per il messaggio di errore
                 "name": f"Errore nel caricamento delle chiavi API: {str(e)}",
                 "key_masked": "N/A",
                 "project": "N/A",
@@ -337,6 +301,7 @@ async def logservice_page(
     else:
         # Se il file non esiste, mostra un messaggio
         api_keys = [{
+            "id": "no_keys",  # Aggiungiamo un ID anche per il messaggio di nessuna chiave
             "name": "Nessuna chiave API configurata",
             "key_masked": "N/A", 
             "project": "N/A",

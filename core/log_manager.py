@@ -191,8 +191,8 @@ class LogManager:
     
     def get_logs(
         self,
-        project: Optional[LogProject] = None,
-        level: Optional[LogLevel] = None,
+        project: Optional[Union[LogProject, str]] = None,
+        level: Optional[Union[LogLevel, str]] = None,
         module: Optional[str] = None,
         document_id: Optional[str] = None,
         file_name: Optional[str] = None,
@@ -229,21 +229,24 @@ class LogManager:
         query = "SELECT * FROM logs WHERE 1=1"
         params = []
         
-        if project:
+        # Standardizza il valore di project a stringa
+        project_str = project
+        if isinstance(project, LogProject):
+            project_str = project.value
+            
+        if project_str:
             query += " AND project = ?"
-            params.append(project)
+            params.append(project_str)
         
-        # Gestione speciale per il livello lifecycle
-        is_lifecycle_search = level == "lifecycle"
-        if level:
-            if is_lifecycle_search:
-                # Per lifecycle, cerca nei log INFO ma filtra ulteriormente dopo
-                query += " AND level = ?"
-                params.append("info")
-            else:
-                # Per gli altri livelli, cerca direttamente
-                query += " AND level = ?"
-                params.append(level)
+        # Standardizza il valore di level a stringa
+        level_str = level
+        if isinstance(level, LogLevel):
+            level_str = level.value
+            
+        if level_str:
+            # Filtra per il livello specifico richiesto - NESSUNA gestione speciale
+            query += " AND level = ?"
+            params.append(level_str)
         
         if module:
             query += " AND module = ?"
@@ -335,44 +338,8 @@ class LogManager:
                     logger.error(f"Errore durante il parsing JSON del contesto per il log {log_dict['id']}: {str(e)}")
                     log_dict["context"] = {"error": "Formato JSON non valido", "raw_data": log_dict["context"]}
             
-            # Disabilitiamo il post-filtraggio avanzato che potrebbe essere troppo restrittivo
-            # e che è già stato sostituito dalla ricerca SQL semplificata
-            include_log = True
-            
-            if include_log:
-                # Gestione speciale per il livello lifecycle
-                if is_lifecycle_search:
-                    # Verifica se il log è relativo al ciclo di vita
-                    is_lifecycle = False
-                    
-                    # Verifica nei dettagli
-                    if isinstance(log_dict["details"], dict):
-                        # Verifica esplicitamente se contiene log_type=lifecycle
-                        if log_dict["details"].get("log_type") == "lifecycle":
-                            is_lifecycle = True
-                        # Oppure se contiene lifecycle_event
-                        elif log_dict["details"].get("lifecycle_event") is not None:
-                            is_lifecycle = True
-                        # Oppure se contiene la stringa 'lifecycle' in qualsiasi punto dei dettagli
-                        else:
-                            # Converti i dettagli in stringa JSON e cerca la parola 'lifecycle'
-                            details_str = str(log_dict["details"]).lower()
-                            if 'lifecycle' in details_str:
-                                is_lifecycle = True
-                    
-                    # Verifica nel messaggio
-                    if not is_lifecycle and log_dict["message"]:
-                        if ("[LIFECYCLE]" in log_dict["message"] or 
-                            "LIFECYCLE_EVENT:" in log_dict["message"] or 
-                            "lifecycle" in log_dict["message"].lower()):
-                            is_lifecycle = True
-                    
-                    if is_lifecycle:
-                        # Cambia il livello visualizzato a "lifecycle"
-                        log_dict["level"] = "lifecycle"
-                        results.append(log_dict)
-                else:
-                    results.append(log_dict)
+            # Aggiungi il log ai risultati senza alcun post-processing
+            results.append(log_dict)
         
         conn.close()
         return results

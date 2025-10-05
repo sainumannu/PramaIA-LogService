@@ -2,18 +2,21 @@
 Router per le impostazioni del servizio.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, Body
+from fastapi import APIRouter, Depends, HTTPException, status, Body, Request
 from typing import Dict, Any, List, Optional
 import os
 import json
+import traceback
 from pydantic import BaseModel
 from datetime import datetime
+import logging
 
 from core.auth import get_api_key, create_api_key
 from core.config import get_settings, update_settings
 from core.models import LogProject
 
 router = settings_router = APIRouter()
+logger = logging.getLogger(__name__)
 
 class ApiKeyCreate(BaseModel):
     name: str
@@ -117,6 +120,7 @@ async def create_new_api_key(
 @router.delete("/api-keys/{key_id}", status_code=status.HTTP_200_OK)
 async def delete_api_key(
     key_id: str,
+    request: Request,
     admin_api_key: str = Depends(get_api_key)
 ):
     """
@@ -124,36 +128,99 @@ async def delete_api_key(
     
     Richiede un API key valido per l'autenticazione.
     """
-    api_keys_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config", "api_keys.json")
+    try:
+        logger.info(f"Tentativo di eliminazione API key: {key_id}")
+        
+        api_keys_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "config", "api_keys.json")
+        
+        if not os.path.exists(api_keys_path):
+            logger.error(f"File delle API keys non trovato: {api_keys_path}")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"File delle API keys non trovato: {api_keys_path}"
+            )
+        
+        # Carica le API keys
+        try:
+            with open(api_keys_path, "r", encoding="utf-8") as f:
+                api_keys = json.load(f)
+                logger.info(f"Chiavi API caricate: {list(api_keys.keys())}")
+        except json.JSONDecodeError as e:
+            logger.error(f"Errore nel parsing del file JSON delle API keys: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Errore nel parsing del file JSON delle API keys: {str(e)}"
+            )
+        except Exception as e:
+            logger.error(f"Errore durante il caricamento del file delle API keys: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Errore durante il caricamento del file delle API keys: {str(e)}"
+            )
+        
+        # La chiave potrebbe essere l'ID completo o solo un frammento
+        # Creiamo una lista di potenziali corrispondenze
+        potential_matches = []
+        
+        # Controllo per corrispondenza esatta
+        if key_id in api_keys:
+            potential_matches.append(key_id)
+        else:
+            # Cerca corrispondenze parziali o per nome
+            for id, info in api_keys.items():
+                # Verifica corrispondenza parziale dell'ID
+                if id.startswith(key_id) or key_id.startswith(id):
+                    potential_matches.append(id)
+                # Verifica corrispondenza per nome
+                elif isinstance(info, dict) and info.get("name") == key_id:
+                    potential_matches.append(id)
+        
+        logger.info(f"Potenziali corrispondenze trovate: {potential_matches}")
+        
+        if not potential_matches:
+            logger.error(f"API key con ID {key_id} non trovata")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"API key con ID {key_id} non trovata"
+            )
+        
+        # Utilizziamo la prima corrispondenza trovata
+        matched_key_id = potential_matches[0]
+        
+        # Salva il nome prima di eliminare
+        key_info = api_keys[matched_key_id]
+        key_name = key_info.get("name", matched_key_id) if isinstance(key_info, dict) else matched_key_id
+        
+        logger.info(f"Eliminazione della chiave {matched_key_id} (nome: {key_name})")
+        
+        # Elimina la chiave
+        del api_keys[matched_key_id]
+        
+        # Salva le modifiche
+        try:
+            with open(api_keys_path, "w", encoding="utf-8") as f:
+                json.dump(api_keys, f, indent=4)
+            logger.info(f"Chiave {matched_key_id} eliminata con successo")
+        except Exception as e:
+            logger.error(f"Errore durante il salvataggio del file JSON: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Errore durante il salvataggio del file JSON: {str(e)}"
+            )
+        
+        return {"message": f"API key '{key_name}' eliminata con successo"}
     
-    if not os.path.exists(api_keys_path):
+    except HTTPException:
+        # Rilancia le eccezioni HTTP già formattate
+        raise
+    except Exception as e:
+        # Log completo dell'errore con traceback
+        logger.error(f"Errore non gestito durante l'eliminazione della chiave: {str(e)}")
+        logger.error(traceback.format_exc())
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="File delle API keys non trovato"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Errore non gestito durante l'eliminazione della chiave: {str(e)}"
         )
-    
-    # Carica le API keys
-    with open(api_keys_path, "r") as f:
-        api_keys = json.load(f)
-    
-    # Verifica che la chiave esista
-    if key_id not in api_keys:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"API key con ID {key_id} non trovata"
-        )
-    
-    # Salva il nome prima di eliminare
-    key_name = api_keys[key_id].get("name", key_id) if isinstance(api_keys[key_id], dict) else key_id
-    
-    # Elimina la chiave
-    del api_keys[key_id]
-    
-    # Salva le modifiche
-    with open(api_keys_path, "w") as f:
-        json.dump(api_keys, f, indent=4)
-    
-    return {"message": f"API key '{key_name}' eliminata con successo"}
 
 @router.post("/api-keys/{key_id}/regenerate", status_code=status.HTTP_200_OK)
 async def regenerate_api_key(
@@ -177,15 +244,24 @@ async def regenerate_api_key(
         )
     
     # Carica le API keys
-    with open(api_keys_path, "r") as f:
+    with open(api_keys_path, "r", encoding="utf-8") as f:
         api_keys = json.load(f)
     
     # Verifica che la chiave esista
     if key_id not in api_keys:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"API key con ID {key_id} non trovata"
-        )
+        # Prova a cercare per nome invece che per ID
+        found = False
+        for id, info in api_keys.items():
+            if isinstance(info, dict) and info.get("name") == key_id:
+                key_id = id
+                found = True
+                break
+        
+        if not found:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"API key con ID {key_id} non trovata"
+            )
     
     # Estrai le informazioni sulla chiave
     key_info = api_keys[key_id]
@@ -218,7 +294,7 @@ async def regenerate_api_key(
         api_keys[key_id] = key_info
     
     # Salva le modifiche
-    with open(api_keys_path, "w") as f:
+    with open(api_keys_path, "w", encoding="utf-8") as f:
         json.dump(api_keys, f, indent=4)
     
     # Preparazione della risposta

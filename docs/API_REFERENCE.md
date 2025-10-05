@@ -111,10 +111,14 @@ Recupera le voci di log in base ai filtri specificati.
 - `project`: filtra per progetto (opzionale)
 - `level`: filtra per livello di log (opzionale)
 - `module`: filtra per modulo (opzionale)
+- `document_id`: filtra per ID del documento (opzionale)
+- `file_name`: filtra per nome file (opzionale)
 - `start_date`: filtra per data di inizio (ISO format, opzionale)
 - `end_date`: filtra per data di fine (ISO format, opzionale)
 - `limit`: numero massimo di log da restituire (default: 100)
 - `offset`: offset per la paginazione (default: 0)
+- `sort_by`: campo per l'ordinamento (default: timestamp)
+- `sort_order`: ordine di ordinamento (asc, desc) (default: desc)
 
 **Response:**
 
@@ -172,7 +176,8 @@ Recupera statistiche sui log.
     "info": 300,
     "warning": 100,
     "error": 80,
-    "critical": 20
+    "critical": 20,
+    "lifecycle": 200
   },
   "logs_by_project": {
     "PramaIAServer": 600,
@@ -215,3 +220,84 @@ Pulisce i log più vecchi di un certo numero di giorni.
   "message": "Eliminati 500 log"
 }
 ```
+
+### API del ciclo di vita dei documenti
+
+#### GET /api/lifecycle/document/{document_id}
+
+Recupera tutti i log del ciclo di vita relativi a un documento specifico.
+
+**Query Parameters:**
+- `start_date`: filtra per data di inizio (ISO format, opzionale)
+- `end_date`: filtra per data di fine (ISO format, opzionale)
+- `level`: filtra per livello di log (opzionale, default: tutte)
+- `limit`: numero massimo di log da restituire (default: 100)
+- `offset`: offset per la paginazione (default: 0)
+
+**Response:**
+```json
+[
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "timestamp": "2023-08-18T14:30:00.000Z",
+    "project": "PramaIA-PDK",
+    "level": "lifecycle",
+    "module": "document-monitor-plugin",
+    "message": "Documento PDF importato",
+    "details": {
+      "document_id": "doc123",
+      "file_name": "documento.pdf",
+      "file_hash": "a1b2c3d4e5f6...",
+      "lifecycle_event": "IMPORT"
+    },
+    "context": {
+      "source_folder": "/input"
+    }
+  },
+  {
+    "id": "650e8400-e29b-41d4-a716-446655440000",
+    "timestamp": "2023-08-18T14:31:00.000Z",
+    "project": "PramaIA-PDK",
+    "level": "lifecycle",
+    "module": "workflow-engine",
+    "message": "Elaborazione documento completata",
+    "details": {
+      "document_id": "doc123",
+      "lifecycle_event": "PROCESSED",
+      "workflow_id": "workflow123"
+    },
+    "context": {
+      "execution_time_ms": 1500
+    }
+  }
+]
+```
+
+#### GET /api/lifecycle/file/{file_name}
+
+Recupera tutti i log del ciclo di vita relativi a un file specifico.
+
+**Query Parameters:**
+- `start_date`: filtra per data di inizio (ISO format, opzionale)
+- `end_date`: filtra per data di fine (ISO format, opzionale)
+- `level`: filtra per livello di log (opzionale, default: tutte)
+- `limit`: numero massimo di log da restituire (default: 100)
+- `offset`: offset per la paginazione (default: 0)
+
+**Response:**
+Stesso formato dell'endpoint `/api/lifecycle/document/{document_id}`
+
+#### GET /api/lifecycle/hash/{file_hash}
+
+Recupera tutti i log del ciclo di vita relativi a un file specifico tramite il suo hash.
+Utile per tracciare documenti che sono stati rinominati.
+
+**Query Parameters:**
+- `start_date`: filtra per data di inizio (ISO format, opzionale)
+- `end_date`: filtra per data di fine (ISO format, opzionale)
+- `level`: filtra per livello di log (opzionale, default: tutte)
+- `limit`: numero massimo di log da restituire (default: 100)
+- `offset`: offset per la paginazione (default: 0)
+
+**Response:**
+Stesso formato dell'endpoint `/api/lifecycle/document/{document_id}`
