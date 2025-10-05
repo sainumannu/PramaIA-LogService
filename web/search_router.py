@@ -29,10 +29,12 @@ async def search_logs(
     project: Optional[str] = None,
     level: Optional[str] = None,
     module: Optional[str] = None,
-    document_id: Optional[str] = None,  # Nuovo parametro per filtrare per ID documento
-    file_name: Optional[str] = None,    # Nuovo parametro per filtrare per nome file
+    document_id: Optional[str] = None,  # Parametro per filtrare per ID documento
+    file_name: Optional[str] = None,    # Parametro per filtrare per nome file
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
+    sort_by: str = "timestamp",         # Parametro per ordinare i risultati
+    sort_order: str = "desc",           # Parametro per l'ordine di ordinamento
     limit: int = 100,
     offset: int = 0,
     # Disabilitato temporaneamente per lo sviluppo
@@ -74,6 +76,8 @@ async def search_logs(
         file_name=file_name,
         start_date=start_datetime,
         end_date=end_datetime,
+        sort_by=sort_by,
+        sort_order=sort_order,
         limit=limit,
         offset=offset
     )
@@ -87,8 +91,13 @@ async def search_logs(
             f"module={module}, document_id={document_id}, file_name={file_name}. "
             f"Provando senza filtri."
         )
-        # Prova a ottenere almeno alcuni log senza filtri
-        logs = log_manager.get_logs(limit=limit, offset=offset)
+        # Prova a ottenere almeno alcuni log senza filtri ma mantenendo l'ordinamento
+        logs = log_manager.get_logs(
+            sort_by=sort_by, 
+            sort_order=sort_order, 
+            limit=limit, 
+            offset=offset
+        )
     
     # Se la ricerca è per lifecycle, filtriamo ulteriormente i risultati
     if is_lifecycle_search:
@@ -154,6 +163,8 @@ async def search_logs(
             "file_name": file_name, 
             "start_date": start_date,
             "end_date": end_date,
+            "sort_by": sort_by,
+            "sort_order": sort_order,
             "title": "Ricerca Log - PramaIA LogService"
         }
     )

@@ -48,8 +48,12 @@ async def get_logs(
     project: Optional[LogProject] = None,
     level: Optional[LogLevel] = None,
     module: Optional[str] = None,
+    document_id: Optional[str] = None,
+    file_name: Optional[str] = None,
     start_date: Optional[datetime] = None,
     end_date: Optional[datetime] = None,
+    sort_by: str = "timestamp",
+    sort_order: str = "desc",
     limit: int = 100,
     offset: int = 0,
     api_key: str = Depends(get_api_key)
@@ -58,13 +62,30 @@ async def get_logs(
     Recupera le voci di log in base ai filtri specificati.
     
     Richiede un API key valido per l'autenticazione.
+    
+    Parametri:
+    - project: Filtra per progetto
+    - level: Filtra per livello di log
+    - module: Filtra per modulo
+    - document_id: Filtra per ID del documento
+    - file_name: Filtra per nome del file
+    - start_date: Data di inizio per il filtro temporale
+    - end_date: Data di fine per il filtro temporale
+    - sort_by: Campo per ordinare i risultati (timestamp, level, project, module, message)
+    - sort_order: Ordine di ordinamento (asc, desc)
+    - limit: Numero massimo di log da restituire
+    - offset: Offset per la paginazione
     """
     logs = log_manager.get_logs(
         project=project,
         level=level,
         module=module,
+        document_id=document_id,
+        file_name=file_name,
         start_date=start_date,
         end_date=end_date,
+        sort_by=sort_by,
+        sort_order=sort_order,
         limit=limit,
         offset=offset
     )

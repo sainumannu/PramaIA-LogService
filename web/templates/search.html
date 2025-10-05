@@ -203,6 +203,27 @@
                     </div>
                 </div>
                 
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="sort_by">Ordina per</label>
+                        <select id="sort_by" name="sort_by">
+                            <option value="timestamp" {% if sort_by == 'timestamp' %}selected{% endif %}>Data/ora</option>
+                            <option value="level" {% if sort_by == 'level' %}selected{% endif %}>Livello</option>
+                            <option value="project" {% if sort_by == 'project' %}selected{% endif %}>Progetto</option>
+                            <option value="module" {% if sort_by == 'module' %}selected{% endif %}>Modulo</option>
+                            <option value="message" {% if sort_by == 'message' %}selected{% endif %}>Messaggio</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="sort_order">Ordinamento</label>
+                        <select id="sort_order" name="sort_order">
+                            <option value="desc" {% if sort_order == 'desc' %}selected{% endif %}>Decrescente (più recenti prima)</option>
+                            <option value="asc" {% if sort_order == 'asc' %}selected{% endif %}>Crescente (più vecchi prima)</option>
+                        </select>
+                    </div>
+                </div>
+                
                 <div class="form-actions">
                     <button type="submit" class="btn primary">Cerca</button>
                     <button type="button" class="btn secondary" id="reset-filters">Reimposta</button>
@@ -243,11 +264,11 @@
             
             <div class="pagination">
                 {% if offset > 0 %}
-                <a href="?project={{ project or '' }}&level={{ level or '' }}&module={{ module or '' }}&document_id={{ document_id or '' }}&file_name={{ file_name or '' }}&start_date={{ start_date or '' }}&end_date={{ end_date or '' }}&limit={{ limit }}&offset={{ offset - limit if offset - limit >= 0 else 0 }}" class="btn">Precedente</a>
+                <a href="?project={{ project or '' }}&level={{ level or '' }}&module={{ module or '' }}&document_id={{ document_id or '' }}&file_name={{ file_name or '' }}&start_date={{ start_date or '' }}&end_date={{ end_date or '' }}&sort_by={{ sort_by or 'timestamp' }}&sort_order={{ sort_order or 'desc' }}&limit={{ limit }}&offset={{ offset - limit if offset - limit >= 0 else 0 }}" class="btn">Precedente</a>
                 {% endif %}
                 
                 {% if logs|length >= limit %}
-                <a href="?project={{ project or '' }}&level={{ level or '' }}&module={{ module or '' }}&document_id={{ document_id or '' }}&file_name={{ file_name or '' }}&start_date={{ start_date or '' }}&end_date={{ end_date or '' }}&limit={{ limit }}&offset={{ offset + limit }}" class="btn">Successivo</a>
+                <a href="?project={{ project or '' }}&level={{ level or '' }}&module={{ module or '' }}&document_id={{ document_id or '' }}&file_name={{ file_name or '' }}&start_date={{ start_date or '' }}&end_date={{ end_date or '' }}&sort_by={{ sort_by or 'timestamp' }}&sort_order={{ sort_order or 'desc' }}&limit={{ limit }}&offset={{ offset + limit }}" class="btn">Successivo</a>
                 {% endif %}
             </div>
         </section>

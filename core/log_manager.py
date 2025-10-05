@@ -198,6 +198,8 @@ class LogManager:
         file_name: Optional[str] = None,
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None,
+        sort_by: str = "timestamp",
+        sort_order: str = "desc",
         limit: int = 100,
         offset: int = 0
     ) -> List[Dict[str, Any]]:
@@ -212,6 +214,8 @@ class LogManager:
             file_name: Filtra per nome del file
             start_date: Data di inizio per il filtro temporale
             end_date: Data di fine per il filtro temporale
+            sort_by: Campo per ordinare i risultati (timestamp, level, project, module)
+            sort_order: Ordine di ordinamento (asc, desc)
             limit: Numero massimo di log da restituire
             offset: Offset per la paginazione
             
@@ -278,8 +282,19 @@ class LogManager:
             query += " AND timestamp <= ?"
             params.append(end_date.isoformat())
         
-        # Ordina per timestamp decrescente (più recenti prima)
-        query += " ORDER BY timestamp DESC"
+        # Validazione campi di ordinamento
+        valid_sort_fields = ["timestamp", "level", "project", "module", "message"]
+        valid_sort_orders = ["asc", "desc"]
+        
+        # Imposta i valori predefiniti se non validi
+        if sort_by not in valid_sort_fields:
+            sort_by = "timestamp"
+        
+        if sort_order.lower() not in valid_sort_orders:
+            sort_order = "desc"
+        
+        # Applica l'ordinamento
+        query += f" ORDER BY {sort_by} {sort_order.upper()}"
         
         # Limita i risultati
         query += " LIMIT ? OFFSET ?"
