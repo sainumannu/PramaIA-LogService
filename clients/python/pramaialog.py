@@ -226,14 +226,8 @@ class PramaIALogger:
         """
         log_id = str(uuid.uuid4())
         
-        # Gestione speciale per il livello LIFECYCLE
-        # Per retrocompatibilità, i log lifecycle vengono inviati come INFO
-        # ma con tag speciale nei dettagli
-        actual_level = level
+        # Assicurati che i dettagli del lifecycle abbiano il tag appropriato
         if level == LogLevel.LIFECYCLE:
-            actual_level = LogLevel.INFO
-            
-            # Assicurati che i dettagli contengano il tag lifecycle
             if not details:
                 details = {}
             if isinstance(details, dict) and "log_type" not in details:
@@ -243,7 +237,7 @@ class PramaIALogger:
             "id": log_id,
             "timestamp": datetime.now().isoformat(),
             "project": self.project,
-            "level": actual_level,
+            "level": level,  # Usa il livello originale, non convertire LIFECYCLE in INFO!
             "module": self.module,
             "message": message,
             "details": details,
